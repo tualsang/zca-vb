@@ -23,6 +23,11 @@ const CHURCHES = [
   "Others",
 ];
 
+// ─── Registration deadline ────────────────────────────────────────────────
+// June 14, 2026, 11:59 PM Eastern Time = 03:59 UTC on June 15, 2026
+// (ET in June is EDT, which is UTC-4)
+const REGISTRATION_DEADLINE = new Date("2026-06-15T03:59:00Z");
+
 const C = {
   cream: "#F1EADA",
   paper: "#F8F2E2",
@@ -34,6 +39,8 @@ const C = {
   line: "#D9CFB8",
   warn: "#B8860B",
   warnBg: "#FBF3DB",
+  ok: "#2D5A3D",
+  okBg: "#DDF1DE",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -61,12 +68,10 @@ function generateEditCode(churchName) {
   return `${prefix}-${suffix}`;
 }
 
-// Strip everything except digits, cap at 10
 function sanitizePhoneInput(value) {
   return value.replace(/\D/g, "").slice(0, 10);
 }
 
-// Format 10 (or partial) digits as (XXX) XXX-XXXX
 function formatPhone(digits) {
   if (!digits) return "";
   const d = digits.replace(/\D/g, "");
@@ -75,9 +80,13 @@ function formatPhone(digits) {
   return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6, 10)}`;
 }
 
-// Strip digits from name input, allow letters, spaces, hyphens, apostrophes, periods
 function sanitizeNameInput(value) {
   return value.replace(/[0-9]/g, "");
+}
+
+// Total players for a team includes the captain
+function teamHeadcount(team) {
+  return (team.players?.length || 0) + 1;
 }
 
 // ─── Reusable inputs ──────────────────────────────────────────────────────
@@ -85,9 +94,7 @@ function sanitizeNameInput(value) {
 function NameInput({ value, onChange, placeholder, ...props }) {
   return (
     <input
-      type="text"
-      autoComplete="off"
-      autoCapitalize="words"
+      type="text" autoComplete="off" autoCapitalize="words"
       value={value}
       onChange={(e) => onChange(sanitizeNameInput(e.target.value))}
       placeholder={placeholder}
@@ -99,12 +106,9 @@ function NameInput({ value, onChange, placeholder, ...props }) {
 }
 
 function PhoneInput({ value, onChange, placeholder, ...props }) {
-  // value is stored as digits; we display formatted
   return (
     <input
-      type="tel"
-      inputMode="numeric"
-      autoComplete="tel"
+      type="tel" inputMode="numeric" autoComplete="tel"
       value={formatPhone(value)}
       onChange={(e) => onChange(sanitizePhoneInput(e.target.value))}
       placeholder={placeholder || "(555) 123-4567"}
@@ -113,6 +117,33 @@ function PhoneInput({ value, onChange, placeholder, ...props }) {
       {...props}
     />
   );
+}
+
+// ─── Countdown hook ───────────────────────────────────────────────────────
+
+function useCountdown(targetDate) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    // Update every second
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const diffMs = targetDate.getTime() - now.getTime();
+  const expired = diffMs <= 0;
+
+  if (expired) {
+    return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
+  }
+
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return { expired: false, days, hours, minutes, seconds };
 }
 
 // ─── Root ─────────────────────────────────────────────────────────────────
@@ -125,13 +156,11 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [showLogin, setShowLogin] = useState(false);
 
+  const countdown = useCountdown(REGISTRATION_DEADLINE);
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => setSession(session));
     return () => subscription.unsubscribe();
   }, []);
 
@@ -159,7 +188,6 @@ export default function App() {
     setLoading(false);
   };
 
-  // Force a fresh load whenever switching to roster/freeagents tabs (belt & suspenders)
   const switchTab = (next) => {
     setTab(next);
     if (next === "roster" || next === "freeagents") loadRegistrations();
@@ -169,15 +197,11 @@ export default function App() {
     const editCode = entry.kind === "team" ? generateEditCode(entry.church) : null;
     const payload = editCode ? { ...entry, edit_code: editCode } : entry;
     const { data, error } = await supabase
-      .from("registrations")
-      .insert([payload])
-      .select()
-      .single();
+      .from("registrations").insert([payload]).select().single();
     if (error) {
       alert("Something went wrong saving your registration. Please try again.\n\n" + error.message);
       return;
     }
-    // Refresh local list immediately so confirm/roster has the latest data
     await loadRegistrations();
     setJustSubmitted(data);
     setTab("confirm");
@@ -197,7 +221,7 @@ export default function App() {
     registrations.forEach((r) => {
       if (r.kind === "team") {
         teams++;
-        players += (r.players?.length || 0);
+        players += teamHeadcount(r); // captain + players
       } else {
         freeAgents++;
         players++;
@@ -205,6 +229,9 @@ export default function App() {
     });
     return { players, teams, freeAgents };
   }, [registrations]);
+
+  // Registration is closed when countdown is expired AND the user is not admin
+  const registrationOpen = !countdown.expired || isAdmin;
 
   return (
     <div style={{ background: C.cream, color: C.ink, minHeight: "100vh" }}>
@@ -244,13 +271,15 @@ export default function App() {
             </div>
           </div>
 
-          {/* Mobile-only stats — compact */}
           <div className="sm:hidden mt-4">
             <ScoreboardStats stats={stats} loading={loading} compact />
           </div>
 
-          <nav className="mt-6 sm:mt-8 flex gap-1 flex-wrap">
-            <TabButton active={tab === "register"} onClick={() => switchTab("register")}>
+          {/* Countdown banner */}
+          <CountdownBanner countdown={countdown} isAdmin={isAdmin} />
+
+          <nav className="mt-5 sm:mt-6 flex gap-1.5 sm:gap-2 flex-wrap items-stretch">
+            <TabButton active={tab === "register"} onClick={() => switchTab("register")} primary>
               <UserPlus size={14} /> Register
             </TabButton>
             <TabButton active={tab === "manage"} onClick={() => switchTab("manage")}>
@@ -271,8 +300,13 @@ export default function App() {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
         {tab === "register" && (
-          <RegisterForm onSubmit={addRegistration} registrations={registrations}
-            onSwitchToManage={() => switchTab("manage")} />
+          registrationOpen ? (
+            <RegisterForm onSubmit={addRegistration} registrations={registrations}
+              onSwitchToManage={() => switchTab("manage")} isAdmin={isAdmin}
+              countdownExpired={countdown.expired} />
+          ) : (
+            <RegistrationClosedView onSwitchToRoster={() => switchTab("roster")} />
+          )
         )}
         {tab === "manage" && <ManageTeamFlow isAdmin={isAdmin} />}
         {tab === "confirm" && (
@@ -318,6 +352,104 @@ export default function App() {
   );
 }
 
+// ─── Countdown banner ─────────────────────────────────────────────────────
+
+function CountdownBanner({ countdown, isAdmin }) {
+  if (countdown.expired) {
+    return (
+      <div className="mt-5 p-3 sm:p-4 border-2 flex items-center gap-3 flex-wrap"
+        style={{ background: C.warnBg, borderColor: C.warn }}>
+        <AlertTriangle size={18} style={{ color: C.warn, flexShrink: 0 }} />
+        <div className="flex-1 min-w-0">
+          <div className="text-xs sm:text-sm uppercase tracking-widest font-bold" style={{ color: C.ink }}>
+            Registration Closed
+          </div>
+          <div className="text-xs italic mt-0.5" style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
+            The registration deadline has passed.{isAdmin ? " You can still register as admin." : " Contact the organizers if you missed it."}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { days, hours, minutes, seconds } = countdown;
+  const urgent = days < 3; // last 3 days = red theme
+
+  return (
+    <div className="mt-5 p-3 sm:p-4 border-2 flex items-center gap-3 sm:gap-4 flex-wrap"
+      style={{
+        background: urgent ? "#FBE3DB" : C.paper,
+        borderColor: urgent ? C.rust : C.ink,
+      }}>
+      <Clock size={18} style={{ color: urgent ? C.rust : C.ink, flexShrink: 0 }} />
+      <div className="text-[10px] sm:text-xs uppercase tracking-widest font-bold" style={{ color: C.ink }}>
+        Registration Closes
+        <div className="text-[9px] sm:text-[10px] font-normal opacity-80">
+          June 14, 2026 · 11:59 PM ET
+        </div>
+      </div>
+
+      <div className="flex gap-2 sm:gap-3 ml-auto">
+        <CountdownUnit value={days} label="Days" urgent={urgent} />
+        <CountdownUnit value={hours} label="Hrs" urgent={urgent} />
+        <CountdownUnit value={minutes} label="Min" urgent={urgent} />
+        <CountdownUnit value={seconds} label="Sec" urgent={urgent} />
+      </div>
+    </div>
+  );
+}
+
+function CountdownUnit({ value, label, urgent }) {
+  return (
+    <div className="text-center min-w-[44px] sm:min-w-[52px]">
+      <div style={{
+        fontFamily: "'Bebas Neue', sans-serif",
+        fontSize: "clamp(22px, 6vw, 30px)",
+        lineHeight: 1,
+        color: urgent ? C.rust : C.ink,
+        fontVariantNumeric: "tabular-nums",
+      }}>
+        {String(value).padStart(2, "0")}
+      </div>
+      <div className="text-[9px] uppercase tracking-widest mt-0.5" style={{ color: C.inkSoft }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+// ─── Registration closed view ─────────────────────────────────────────────
+
+function RegistrationClosedView({ onSwitchToRoster }) {
+  return (
+    <div className="max-w-2xl mx-auto text-center py-12 sm:py-16">
+      <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-5"
+        style={{ background: C.warn, color: C.cream }}>
+        <Lock size={28} strokeWidth={2.5} />
+      </div>
+      <h2 style={{
+        fontFamily: "'Bebas Neue', sans-serif",
+        fontSize: "clamp(40px, 10vw, 56px)",
+        lineHeight: 1, color: C.ink,
+      }}>
+        Registration Closed
+      </h2>
+      <p className="mt-3 italic text-base sm:text-lg px-2"
+        style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
+        The deadline was June 14, 2026 at 11:59 PM ET. If you missed it,
+        please contact the organizers directly to see if a spot is still available.
+      </p>
+      <div className="mt-7 flex gap-3 justify-center">
+        <button onClick={onSwitchToRoster}
+          className="px-6 py-3 text-sm uppercase tracking-widest"
+          style={{ background: C.rust, color: C.cream, fontWeight: 700 }}>
+          View Roster
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Login Modal ──────────────────────────────────────────────────────────
 
 function LoginModal({ onClose }) {
@@ -328,14 +460,10 @@ function LoginModal({ onClose }) {
 
   const handleLogin = async () => {
     setError("");
-    if (!email.trim() || !password) {
-      setError("Enter email and password.");
-      return;
-    }
+    if (!email.trim() || !password) { setError("Enter email and password."); return; }
     setLoading(true);
     const { error: dbError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
+      email: email.trim(), password,
     });
     setLoading(false);
     if (dbError) { setError(dbError.message); return; }
@@ -379,25 +507,21 @@ function LoginModal({ onClose }) {
             <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: C.inkSoft }}>
               Email
             </label>
-            <input
-              type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleLogin(); }}
               autoFocus autoComplete="email"
               className="w-full px-4 py-3 border bg-transparent focus:outline-none text-base"
-              style={{ borderColor: C.ink, color: C.ink }}
-            />
+              style={{ borderColor: C.ink, color: C.ink }} />
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: C.inkSoft }}>
               Password
             </label>
-            <input
-              type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleLogin(); }}
               autoComplete="current-password"
               className="w-full px-4 py-3 border bg-transparent focus:outline-none text-base"
-              style={{ borderColor: C.ink, color: C.ink }}
-            />
+              style={{ borderColor: C.ink, color: C.ink }} />
           </div>
         </div>
 
@@ -450,14 +574,36 @@ function Stat({ label, value, divider, compact }) {
   );
 }
 
-function TabButton({ active, onClick, children }) {
+// ─── Tab Button (primary = filled, secondary = outline) ───────────────────
+
+function TabButton({ active, onClick, children, primary }) {
+  // Primary tab (Register) — always rust-colored, highlighted whether active or not
+  if (primary) {
+    return (
+      <button onClick={onClick}
+        className="px-3 sm:px-4 py-2 text-xs sm:text-sm uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 transition-all border-2"
+        style={{
+          background: C.rust,
+          color: C.cream,
+          borderColor: active ? C.ink : C.rust,
+          fontWeight: 700, letterSpacing: "0.1em",
+          boxShadow: active ? `0 0 0 1px ${C.ink} inset` : "none",
+        }}>
+        {children}
+      </button>
+    );
+  }
+
+  // Secondary tabs — outline only, fill in on active
   return (
     <button onClick={onClick}
       className="px-3 sm:px-4 py-2 text-xs sm:text-sm uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 transition-all border"
       style={{
         background: active ? C.ink : "transparent",
-        color: active ? C.cream : C.ink,
-        borderColor: C.ink, fontWeight: 600, letterSpacing: "0.08em",
+        color: active ? C.cream : C.inkSoft,
+        borderColor: active ? C.ink : C.line,
+        fontWeight: active ? 700 : 500,
+        letterSpacing: "0.08em",
       }}>
       {children}
     </button>
@@ -466,12 +612,12 @@ function TabButton({ active, onClick, children }) {
 
 // ─── Register Form ────────────────────────────────────────────────────────
 
-function RegisterForm({ onSubmit, registrations, onSwitchToManage }) {
+function RegisterForm({ onSubmit, registrations, onSwitchToManage, isAdmin, countdownExpired }) {
   const [kind, setKind] = useState("");
   const [church, setChurch] = useState("");
   const [division, setDivision] = useState("");
   const [captainName, setCaptainName] = useState("");
-  const [captainPhone, setCaptainPhone] = useState(""); // stored as digits only
+  const [captainPhone, setCaptainPhone] = useState("");
   const [players, setPlayers] = useState([""]);
   const [agentName, setAgentName] = useState("");
   const [agentPhone, setAgentPhone] = useState("");
@@ -540,6 +686,12 @@ function RegisterForm({ onSubmit, registrations, onSwitchToManage }) {
           Captains register their entire roster in one go. No team? Sign up as a free agent
           and we'll be in touch about placement.
         </p>
+        {isAdmin && countdownExpired && (
+          <div className="mt-4 p-3 text-xs"
+            style={{ background: C.warnBg, border: `1px solid ${C.warn}`, color: C.ink }}>
+            <strong>Admin override:</strong> Public registration is closed, but you can still register on someone's behalf.
+          </div>
+        )}
       </aside>
 
       <section className="lg:col-span-9 border p-5 sm:p-6 md:p-8" style={{ borderColor: C.ink, background: C.paper }}>
@@ -573,6 +725,11 @@ function RegisterForm({ onSubmit, registrations, onSwitchToManage }) {
               <ChoiceCard active={division === "womens"} onClick={() => setDivision("womens")}
                 title="Women's Division" icon={<Trophy size={18} />} />
             </div>
+            {kind === "team" && (
+              <p className="mt-2 text-[11px] italic" style={{ color: C.inkSoft, fontFamily: "'Newsreader', serif" }}>
+                Note: Once registered, division can only be changed by the organizers.
+              </p>
+            )}
           </FormBlock>
         )}
 
@@ -589,7 +746,7 @@ function RegisterForm({ onSubmit, registrations, onSwitchToManage }) {
                   <strong>{duplicateTeam.captain_name}</strong> already registered{" "}
                   <strong>{splitChurch(duplicateTeam.church).name}</strong> for the{" "}
                   <strong>{duplicateTeam.division === "mens" ? "Men's" : "Women's"}</strong> Division
-                  with {duplicateTeam.players?.length || 0} players.
+                  with {teamHeadcount(duplicateTeam)} players.
                 </p>
                 <p className="text-xs italic mb-3" style={{ fontFamily: "'Newsreader', serif" }}>
                   Did you mean to edit the existing team? If you're registering a second team
@@ -628,7 +785,7 @@ function RegisterForm({ onSubmit, registrations, onSwitchToManage }) {
 
               <div className="pt-2">
                 <label className="block text-[10px] uppercase tracking-widest mb-2" style={{ color: C.inkSoft }}>
-                  Players (add as many as you need)
+                  Other Players (captain is automatically included)
                 </label>
                 <div className="space-y-2">
                   {players.map((p, i) => (
@@ -731,10 +888,10 @@ function FormBlock({ number, label, children }) {
   );
 }
 
-function ChoiceCard({ active, onClick, title, desc, icon }) {
+function ChoiceCard({ active, onClick, title, desc, icon, disabled }) {
   return (
-    <button type="button" onClick={onClick}
-      className="text-left p-4 border-2 transition-all"
+    <button type="button" onClick={onClick} disabled={disabled}
+      className="text-left p-4 border-2 transition-all disabled:cursor-not-allowed disabled:opacity-50"
       style={{
         borderColor: active ? C.rust : C.ink,
         background: active ? C.ink : "transparent",
@@ -771,6 +928,8 @@ function ConfirmScreen({ entry, onRegisterAnother, onViewRoster }) {
     });
   };
 
+  const headcount = entry.kind === "team" ? teamHeadcount(entry) : 1;
+
   return (
     <div className="max-w-2xl mx-auto text-center py-8 sm:py-12">
       <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-5 sm:mb-6"
@@ -787,7 +946,7 @@ function ConfirmScreen({ entry, onRegisterAnother, onViewRoster }) {
       <p className="mt-3 italic text-base sm:text-lg px-2"
         style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
         {entry.kind === "team"
-          ? `${entry.players?.length || 0} ${entry.players?.length === 1 ? "player" : "players"} registered for ${churchName}.`
+          ? `${headcount} ${headcount === 1 ? "player" : "players"} registered for ${churchName}.`
           : `You're on the free-agent list for the ${entry.division === "mens" ? "Men's" : "Women's"} division.`}
       </p>
 
@@ -813,7 +972,7 @@ function ConfirmScreen({ entry, onRegisterAnother, onViewRoster }) {
           </div>
           <p className="mt-3 text-xs italic" style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
             Use this code on the <strong>Manage My Team</strong> tab to add or remove players,
-            update phone, or change division. Anyone with this code can edit the team — share it
+            update phone, or change captain. Anyone with this code can edit the team — share it
             only with your co-captain.
           </p>
         </div>
@@ -849,10 +1008,7 @@ function ManageTeamFlow({ isAdmin }) {
     if (!trimmed) { setError("Enter your team code."); return; }
     setLoading(true);
     const { data, error: dbError } = await supabase
-      .from("registrations")
-      .select("*")
-      .eq("edit_code", trimmed)
-      .maybeSingle();
+      .from("registrations").select("*").eq("edit_code", trimmed).maybeSingle();
     setLoading(false);
     if (dbError) { setError("Something went wrong. Please try again."); return; }
     if (!data) { setError("No team found with that code. Double-check and try again."); return; }
@@ -861,9 +1017,7 @@ function ManageTeamFlow({ isAdmin }) {
 
   const handleBack = () => { setTeam(null); setCode(""); setError(""); };
 
-  if (team) {
-    return <EditTeamForm team={team} onBack={handleBack} isAdmin={isAdmin} />;
-  }
+  if (team) return <EditTeamForm team={team} onBack={handleBack} isAdmin={isAdmin} />;
 
   return (
     <div className="grid lg:grid-cols-12 gap-6 lg:gap-8">
@@ -911,7 +1065,6 @@ function ManageTeamFlow({ isAdmin }) {
 
 function EditTeamForm({ team, onBack, isAdmin }) {
   const [captainName, setCaptainName] = useState(team.captain_name || "");
-  // team.phone might be already-formatted; convert to digits for state
   const [captainPhone, setCaptainPhone] = useState(
     (team.phone || "").replace(/\D/g, "").slice(0, 10)
   );
@@ -937,15 +1090,16 @@ function EditTeamForm({ team, onBack, isAdmin }) {
     if (cleaned.length === 0) return setError("You need at least one player.");
 
     setSaving(true);
+    const updatePayload = {
+      captain_name: captainName.trim(),
+      phone: formatPhone(captainPhone),
+      players: cleaned,
+    };
+    // Only include division if admin (locked for captains)
+    if (isAdmin) updatePayload.division = division;
+
     const { error: dbError } = await supabase
-      .from("registrations")
-      .update({
-        captain_name: captainName.trim(),
-        phone: formatPhone(captainPhone),
-        division,
-        players: cleaned,
-      })
-      .eq("id", team.id);
+      .from("registrations").update(updatePayload).eq("id", team.id);
     setSaving(false);
     if (dbError) { setError("Could not save changes: " + dbError.message); return; }
     setSavedFlash(true);
@@ -964,6 +1118,7 @@ function EditTeamForm({ team, onBack, isAdmin }) {
   };
 
   const churchName = splitChurch(team.church).name;
+  const divisionLabel = team.division === "mens" ? "Men's Division" : "Women's Division";
 
   return (
     <div className="grid lg:grid-cols-12 gap-6 lg:gap-8">
@@ -990,13 +1145,35 @@ function EditTeamForm({ team, onBack, isAdmin }) {
       </aside>
 
       <section className="lg:col-span-9 border p-5 sm:p-6 md:p-8" style={{ borderColor: C.ink, background: C.paper }}>
+        {/* Division — locked for non-admins */}
         <FormBlock number="01" label="Division">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <ChoiceCard active={division === "mens"} onClick={() => setDivision("mens")}
-              title="Men's Division" icon={<Trophy size={18} />} />
-            <ChoiceCard active={division === "womens"} onClick={() => setDivision("womens")}
-              title="Women's Division" icon={<Trophy size={18} />} />
-          </div>
+          {isAdmin ? (
+            <>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <ChoiceCard active={division === "mens"} onClick={() => setDivision("mens")}
+                  title="Men's Division" icon={<Trophy size={18} />} />
+                <ChoiceCard active={division === "womens"} onClick={() => setDivision("womens")}
+                  title="Women's Division" icon={<Trophy size={18} />} />
+              </div>
+              <p className="mt-2 text-[11px] italic" style={{ color: C.inkSoft, fontFamily: "'Newsreader', serif" }}>
+                Admin override: division can be changed.
+              </p>
+            </>
+          ) : (
+            <div className="flex items-center gap-3 px-4 py-3 border-2"
+              style={{ borderColor: C.line, background: C.cream }}>
+              <Trophy size={18} style={{ color: C.rust }} />
+              <span className="font-bold uppercase tracking-wider text-sm" style={{ color: C.ink }}>
+                {divisionLabel}
+              </span>
+              <Lock size={14} className="ml-auto" style={{ color: C.inkSoft }} />
+            </div>
+          )}
+          {!isAdmin && (
+            <p className="mt-2 text-[11px] italic" style={{ color: C.inkSoft, fontFamily: "'Newsreader', serif" }}>
+              Division is locked once registered. Contact the organizers if you need to change it.
+            </p>
+          )}
         </FormBlock>
 
         <FormBlock number="02" label="Captain">
@@ -1055,7 +1232,7 @@ function EditTeamForm({ team, onBack, isAdmin }) {
           )}
           {savedFlash && (
             <div className="w-full mb-2 px-4 py-3 text-sm flex items-center gap-2"
-              style={{ background: "#DDF1DE", color: "#2D5A3D", border: `1px solid #2D5A3D` }}>
+              style={{ background: C.okBg, color: C.ok, border: `1px solid ${C.ok}` }}>
               <Check size={16} /> Changes saved.
             </div>
           )}
@@ -1130,6 +1307,7 @@ function DivisionBlock({ title, teams, isAdmin, onRemove }) {
 
 function TeamCard({ team, isAdmin, onRemove }) {
   const { name: churchShort, location: churchLoc } = splitChurch(team.church);
+  const headcount = teamHeadcount(team);
   return (
     <article className="border p-4 sm:p-5 relative" style={{ borderColor: C.ink, background: C.paper }}>
       {isAdmin && (
@@ -1151,10 +1329,9 @@ function TeamCard({ team, isAdmin, onRemove }) {
         {churchShort}
       </h3>
       <div className="text-xs italic mt-1 mb-3" style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
-        Captain: {team.captain_name} · {team.players?.length || 0} players
+        Captain: {team.captain_name} · {headcount} {headcount === 1 ? "player" : "players"}
       </div>
 
-      {/* Admin-only: edit code + phone */}
       {isAdmin && (
         <div className="mb-4 px-3 py-2 text-[11px] flex flex-wrap gap-x-4 gap-y-1"
           style={{ background: C.cream, border: `1px dashed ${C.ink}`, color: C.inkSoft }}>
@@ -1170,11 +1347,27 @@ function TeamCard({ team, isAdmin, onRemove }) {
       )}
 
       <ol className="space-y-1.5">
+        {/* Captain row first */}
+        <li className="flex items-center gap-3 text-sm" style={{ color: C.ink }}>
+          <span className="w-6 text-center text-xs"
+            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, color: C.rust }}>
+            01
+          </span>
+          <span className="flex-1 border-b border-dotted pb-0.5 flex items-center gap-2"
+            style={{ borderColor: C.line }}>
+            <span className="font-semibold">{team.captain_name}</span>
+            <span className="text-[9px] uppercase tracking-widest px-1.5 py-0.5"
+              style={{ background: C.ink, color: C.cream, letterSpacing: "0.15em" }}>
+              Cap
+            </span>
+          </span>
+        </li>
+        {/* Other players */}
         {(team.players || []).map((p, i) => (
           <li key={i} className="flex items-center gap-3 text-sm" style={{ color: C.ink }}>
             <span className="w-6 text-center text-xs"
               style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, color: C.rust }}>
-              {String(i + 1).padStart(2, "0")}
+              {String(i + 2).padStart(2, "0")}
             </span>
             <span className="flex-1 border-b border-dotted pb-0.5" style={{ borderColor: C.line }}>
               {p}
@@ -1231,9 +1424,7 @@ function FreeAgentDivision({ title, agents, isAdmin, onRemove }) {
             return (
               <li key={a.id}
                 className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4"
-                style={{
-                  borderBottom: i < agents.length - 1 ? `1px solid ${C.line}` : "none",
-                }}>
+                style={{ borderBottom: i < agents.length - 1 ? `1px solid ${C.line}` : "none" }}>
                 <span className="w-8 sm:w-10 text-center flex-shrink-0"
                   style={{
                     fontFamily: "'Bebas Neue', sans-serif",
@@ -1300,7 +1491,6 @@ function InfoView() {
       </aside>
 
       <section className="lg:col-span-9 space-y-5">
-        {/* When + Where */}
         <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
           <InfoCard icon={<Calendar size={18} />} label="Date" value="July 10, 2026" />
           <InfoCard icon={<Clock size={18} />} label="Time" value="9:00 AM – 5:00 PM" />
@@ -1323,12 +1513,10 @@ function InfoView() {
         {/* Format */}
         <Section title="Tournament Format">
           <p className="mb-3">
-            <strong>Full round robin</strong> (if 4–5 teams). Everyone plays everyone. With 5 teams that's
-            10 games — very doable in a day on 2 courts. Crown the winner by record, or take top 2 to
-            a championship match.
+            <strong>Full round robin</strong> [4-5 Teams]. Everyone plays everyone. Top 2 plays a championship match.
           </p>
           <p>
-            <strong>Pool play → single-elimination bracket</strong> (if 6+ teams). Split teams into 2 pools,
+            <strong>Pool play → single-elimination bracket</strong> [6+ Teams]. Split teams into 2 pools,
             round-robin within the pool, then top 2 from each pool advance to a 4-team bracket.
           </p>
         </Section>
@@ -1336,7 +1524,7 @@ function InfoView() {
         {/* Scoring */}
         <Section title="Scoring">
           <ul className="space-y-2">
-            <li><strong>Pool play:</strong> Rally scoring to 21, cap at 25 — one game to 25, OR two games to 21.</li>
+            <li><strong>Pool play:</strong> Rally Scoring: 2 sets to 21.</li>
             <li><strong>Bracket quarters / semis:</strong> Best 2-of-3 to 21, third set to 15.</li>
             <li><strong>Championship:</strong> Best 2-of-3 to 25, third set to 15.</li>
           </ul>
@@ -1345,7 +1533,7 @@ function InfoView() {
         {/* Rules */}
         <Section title="Rules">
           <RulesGrid rows={[
-            ["Rotation", "Optional (but must rotate serves)"],
+            ["Rotation", "Please Rotate"],
             ["10-Foot Line", "Men ✓ · Women ✗"],
             ["Foot Fault (under-net line)", "Not enforced"],
             ["Net Fault", "Enforced"],
@@ -1391,7 +1579,7 @@ function Section({ title, children }) {
 
 function RulesGrid({ rows }) {
   return (
-    <div className="divide-y" style={{ borderColor: C.line }}>
+    <div>
       {rows.map(([label, value], i) => (
         <div key={i} className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 py-2"
           style={{ borderTop: i > 0 ? `1px dotted ${C.line}` : "none" }}>
