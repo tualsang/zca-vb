@@ -9,16 +9,17 @@ import { supabase } from "./lib/supabase";
 // EDIT YOUR CHURCH LIST HERE — these appear in the dropdown
 // ─────────────────────────────────────────────────────────────────────────
 const CHURCHES = [
-  "Grace Fellowship — Phoenix, AZ",
-  "Cornerstone Bible Church — Nashville, TN",
-  "Living Hope Church — Dallas, TX",
-  "New Life Assembly — Atlanta, GA",
-  "Faith Community Church — Charlotte, NC",
-  "Calvary Chapel — Denver, CO",
-  "Redeemer Church — Portland, OR",
-  "First Baptist — Birmingham, AL",
-  "Hillside Church — San Diego, CA",
-  "Christ the King — Indianapolis, IN",
+  "Faith Assembly Church - Arizona",
+  "Bethel Mission Church - Atlanta, GA",
+  "Zomi Agape Church - Bowling Green, Kentucky",
+  "Zomi Community Christian Church - Washington D.C.",
+  "Zomi Mission Church - Maryland",
+  "Shalom Zomi Baptist Church - Charlotte, NC",
+  "Charlotte Emanuel Church - Charlotte, NC",
+  "Zomi Christian Church - Columbus, OH",
+  "Zomi Christian Church - Nashville, TN",
+  "Full Life - Tulsa, OK",
+  "Free Agent",
 ];
 
 const FREE_AGENT_TEAM_SIZE = 6;
@@ -112,7 +113,7 @@ export default function App() {
               <div className="flex items-center gap-2 mb-1" style={{ color: C.rust }}>
                 <Trophy size={14} strokeWidth={2.5} />
                 <span className="text-xs tracking-[0.25em] uppercase font-semibold">
-                  Conference 2026
+                  ZCA Conference 2026
                 </span>
               </div>
               <h1 className="leading-none tracking-tight" style={{
@@ -125,8 +126,8 @@ export default function App() {
               <p className="mt-2 italic max-w-xl" style={{
                 fontFamily: "'Newsreader', serif", color: C.inkSoft, fontSize: 17,
               }}>
-                Ten churches. Two divisions. One weekend. — Register your roster below or sign up
-                solo as a free agent and we'll build a team around you.
+                Captains: Register your roster below.
+                Others: Register as Free Agents
               </p>
             </div>
             <ScoreboardStats stats={stats} loading={loading} />
@@ -144,7 +145,7 @@ export default function App() {
             </TabButton>
           </nav>
         </div>
-      </header>
+      </header >
 
       <main className="max-w-6xl mx-auto px-6 py-10">
         {tab === "register" && <RegisterForm onSubmit={addRegistration} />}
@@ -165,9 +166,9 @@ export default function App() {
 
       <footer className="border-t mt-12 py-6 text-center text-xs uppercase tracking-widest"
         style={{ borderColor: C.line, color: C.inkSoft }}>
-        Live roster · Updated in real-time
+        SEE YOU AT MARYLAND!
       </footer>
-    </div>
+    </div >
   );
 }
 
@@ -318,7 +319,7 @@ function RegisterForm({ onSubmit }) {
                 </label>
                 <input
                   value={captainName} onChange={(e) => setCaptainName(e.target.value)}
-                  placeholder="e.g. Daniel Rivera"
+                  placeholder="e.g. Cin Khup"
                   className="w-full px-4 py-3 border bg-transparent focus:outline-none"
                   style={{ borderColor: C.ink, color: C.ink }}
                 />
@@ -572,7 +573,7 @@ function FreeAgentsView({ registrations, loading, onRemove }) {
   if (loading) return <LoadingState />;
   const agents = registrations.filter((r) => r.kind === "free_agent");
   if (agents.length === 0) {
-    return <EmptyState message="No free agents yet. Encourage solo players to sign up." />;
+    return <EmptyState message="No free agents yet." />;
   }
   const mens = agents.filter((a) => a.division === "mens");
   const womens = agents.filter((a) => a.division === "womens");
