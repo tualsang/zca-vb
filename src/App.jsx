@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Trophy, Users, UserPlus, X, Plus, Check, ChevronRight,
-  Loader2, Shield, Flag,
+  Loader2, Shield, Flag, KeyRound, AlertTriangle, Copy, ArrowLeft,
+  Lock, LogOut,
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 
@@ -31,9 +32,10 @@ const C = {
   rustDark: "#A53D21",
   olive: "#5C6B3A",
   line: "#D9CFB8",
+  warn: "#B8860B",
+  warnBg: "#FBF3DB",
 };
 
-// Split "Church Name - Location" or "Church Name — Location" on either dash
 function splitChurch(full) {
   if (!full) return { name: "—", location: "" };
   const parts = full.split(/\s+[—-]\s+/);
@@ -43,11 +45,40 @@ function splitChurch(full) {
   };
 }
 
+function generateEditCode(churchName) {
+  const prefix = (splitChurch(churchName).name || "TEAM")
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "")
+    .slice(0, 4)
+    .padEnd(4, "X");
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let suffix = "";
+  for (let i = 0; i < 4; i++) {
+    suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `${prefix}-${suffix}`;
+}
+
 export default function App() {
   const [tab, setTab] = useState("register");
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [justSubmitted, setJustSubmitted] = useState(null);
+  const [session, setSession] = useState(null);
+  const [showLogin, setShowLogin] = useState(false);
+
+  // Watch auth state
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const isAdmin = !!session;
 
   useEffect(() => {
     loadRegistrations();
@@ -78,9 +109,12 @@ export default function App() {
   };
 
   const addRegistration = async (entry) => {
+    const editCode = entry.kind === "team" ? generateEditCode(entry.church) : null;
+    const payload = editCode ? { ...entry, edit_code: editCode } : entry;
+
     const { data, error } = await supabase
       .from("registrations")
-      .insert([entry])
+      .insert([payload])
       .select()
       .single();
 
@@ -92,10 +126,16 @@ export default function App() {
     setTab("confirm");
   };
 
+  // Admin-only: removes any registration
   const removeRegistration = async (id) => {
+    if (!isAdmin) return;
     if (!confirm("Remove this registration?")) return;
     const { error } = await supabase.from("registrations").delete().eq("id", id);
-    if (error) alert("Could not remove (admin may have disabled deletes): " + error.message);
+    if (error) alert("Could not remove: " + error.message);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
   };
 
   const stats = useMemo(() => {
@@ -123,6 +163,12 @@ export default function App() {
                 <span className="text-xs tracking-[0.25em] uppercase font-semibold">
                   ZCA Conference 2026
                 </span>
+                {isAdmin && (
+                  <span className="ml-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                    style={{ background: C.ink, color: C.cream, letterSpacing: "0.15em" }}>
+                    Admin
+                  </span>
+                )}
               </div>
               <h1 className="leading-none tracking-tight" style={{
                 fontFamily: "'Bebas Neue', sans-serif",
@@ -145,6 +191,9 @@ export default function App() {
             <TabButton active={tab === "register"} onClick={() => setTab("register")}>
               <UserPlus size={14} /> Register
             </TabButton>
+            <TabButton active={tab === "manage"} onClick={() => setTab("manage")}>
+              <KeyRound size={14} /> Manage My Team
+            </TabButton>
             <TabButton active={tab === "roster"} onClick={() => setTab("roster")}>
               <Users size={14} /> Roster ({stats.players})
             </TabButton>
@@ -156,7 +205,11 @@ export default function App() {
       </header >
 
       <main className="max-w-6xl mx-auto px-6 py-10">
-        {tab === "register" && <RegisterForm onSubmit={addRegistration} />}
+        {tab === "register" && (
+          <RegisterForm onSubmit={addRegistration} registrations={registrations}
+            onSwitchToManage={() => setTab("manage")} />
+        )}
+        {tab === "manage" && <ManageTeamFlow isAdmin={isAdmin} />}
         {tab === "confirm" && (
           <ConfirmScreen
             entry={justSubmitted}
@@ -165,18 +218,149 @@ export default function App() {
           />
         )}
         {tab === "roster" && (
-          <RosterView registrations={registrations} loading={loading} onRemove={removeRegistration} />
+          <RosterView registrations={registrations} loading={loading}
+            isAdmin={isAdmin} onRemove={removeRegistration} />
         )}
         {tab === "freeagents" && (
-          <FreeAgentsView registrations={registrations} loading={loading} onRemove={removeRegistration} />
+          <FreeAgentsView registrations={registrations} loading={loading}
+            isAdmin={isAdmin} onRemove={removeRegistration} />
         )}
       </main>
 
       <footer className="border-t mt-12 py-6 text-center text-xs uppercase tracking-widest"
         style={{ borderColor: C.line, color: C.inkSoft }}>
-        SEE YOU AT MARYLAND!
+        <div>SEE YOU AT MARYLAND!</div>
+        <div className="mt-3 flex justify-center gap-4 items-center">
+          {isAdmin ? (
+            <button onClick={handleSignOut}
+              className="inline-flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+              style={{ color: C.inkSoft }}>
+              <LogOut size={11} /> Sign Out
+            </button>
+          ) : (
+            <button onClick={() => setShowLogin(true)}
+              className="inline-flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+              style={{ color: C.inkSoft }}>
+              <Lock size={11} /> Admin
+            </button>
+          )}
+        </div>
       </footer>
+
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div >
+  );
+}
+
+// ─── Login Modal ──────────────────────────────────────────────────────────
+
+function LoginModal({ onClose }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    setError("");
+    if (!email.trim() || !password) {
+      setError("Enter email and password.");
+      return;
+    }
+    setLoading(true);
+    const { error: dbError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    setLoading(false);
+
+    if (dbError) {
+      setError(dbError.message);
+      return;
+    }
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(14, 26, 51, 0.7)" }}
+      onClick={onClose}>
+      <div className="w-full max-w-md border-2 p-6"
+        style={{ borderColor: C.ink, background: C.cream }}
+        onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2" style={{ color: C.rust }}>
+            <Lock size={14} strokeWidth={2.5} />
+            <span className="text-[10px] tracking-[0.25em] uppercase font-bold">
+              Admin Login
+            </span>
+          </div>
+          <button onClick={onClose}
+            className="p-1 hover:opacity-70 transition-opacity"
+            style={{ color: C.ink }}
+            aria-label="Close">
+            <X size={18} />
+          </button>
+        </div>
+
+        <h2 style={{
+          fontFamily: "'Bebas Neue', sans-serif", fontSize: 44,
+          lineHeight: 1, color: C.ink, letterSpacing: "0.02em",
+        }}>
+          Sign In
+        </h2>
+        <p className="mt-2 mb-5 text-sm italic"
+          style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
+          Organizers only.
+        </p>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: C.inkSoft }}>
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleLogin(); }}
+              autoFocus
+              className="w-full px-4 py-3 border bg-transparent focus:outline-none"
+              style={{ borderColor: C.ink, color: C.ink }}
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: C.inkSoft }}>
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleLogin(); }}
+              className="w-full px-4 py-3 border bg-transparent focus:outline-none"
+              style={{ borderColor: C.ink, color: C.ink }}
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div className="mt-4 px-4 py-3 text-sm"
+            style={{ background: "#FBE3DB", color: C.rustDark, border: `1px solid ${C.rust}` }}>
+            {error}
+          </div>
+        )}
+
+        <button onClick={handleLogin} disabled={loading}
+          className="mt-5 w-full inline-flex items-center justify-center gap-2 px-6 py-3 text-sm uppercase tracking-widest disabled:opacity-60"
+          style={{ background: C.rust, color: C.cream, fontWeight: 700, letterSpacing: "0.15em" }}>
+          {loading ? (
+            <><Loader2 className="animate-spin" size={16} /> Signing In…</>
+          ) : (
+            <>Sign In <ChevronRight size={16} /></>
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -218,7 +402,7 @@ function TabButton({ active, onClick, children }) {
   );
 }
 
-function RegisterForm({ onSubmit }) {
+function RegisterForm({ onSubmit, registrations, onSwitchToManage }) {
   const [kind, setKind] = useState("");
   const [church, setChurch] = useState("");
   const [division, setDivision] = useState("");
@@ -229,6 +413,13 @@ function RegisterForm({ onSubmit }) {
   const [agentPhone, setAgentPhone] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const duplicateTeam = useMemo(() => {
+    if (kind !== "team" || !church || !division) return null;
+    return registrations.find(
+      (r) => r.kind === "team" && r.church === church && r.division === division
+    );
+  }, [kind, church, division, registrations]);
 
   const addPlayerRow = () => setPlayers([...players, ""]);
   const updatePlayer = (i, v) => {
@@ -322,6 +513,36 @@ function RegisterForm({ onSubmit }) {
                 title="Women's Division" icon={<Trophy size={18} />} />
             </div>
           </FormBlock>
+        )}
+
+        {duplicateTeam && (
+          <div className="mb-7 p-4 border-2"
+            style={{ background: C.warnBg, borderColor: C.warn, color: C.ink }}>
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={20} style={{ color: C.warn, flexShrink: 0, marginTop: 2 }} />
+              <div className="flex-1">
+                <h4 className="font-bold uppercase tracking-wider text-sm mb-1">
+                  Heads up — this church already has a team
+                </h4>
+                <p className="text-sm leading-snug mb-3">
+                  <strong>{duplicateTeam.captain_name}</strong> already registered{" "}
+                  <strong>{splitChurch(duplicateTeam.church).name}</strong> for the{" "}
+                  <strong>{duplicateTeam.division === "mens" ? "Men's" : "Women's"}</strong> Division
+                  with {duplicateTeam.players?.length || 0} players.
+                </p>
+                <p className="text-xs italic mb-3" style={{ fontFamily: "'Newsreader', serif" }}>
+                  Did you mean to edit the existing team? If you're registering a second team
+                  (e.g. an "A" and "B" squad), you can still proceed below.
+                </p>
+                <button
+                  onClick={onSwitchToManage}
+                  className="text-xs uppercase tracking-widest font-bold underline"
+                  style={{ color: C.rustDark }}>
+                  Manage existing team instead →
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {kind === "team" && division && (
@@ -501,8 +722,19 @@ function ChoiceCard({ active, onClick, title, desc, icon }) {
 }
 
 function ConfirmScreen({ entry, onRegisterAnother, onViewRoster }) {
+  const [copied, setCopied] = useState(false);
   if (!entry) return null;
   const churchName = splitChurch(entry.church).name;
+  const editCode = entry.edit_code;
+
+  const copyCode = () => {
+    if (!editCode) return;
+    navigator.clipboard.writeText(editCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   return (
     <div className="max-w-2xl mx-auto text-center py-12">
       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6"
@@ -521,6 +753,34 @@ function ConfirmScreen({ entry, onRegisterAnother, onViewRoster }) {
           : `You're on the free-agent list for the ${entry.division === "mens" ? "Men's" : "Women's"} division.`}
       </p>
 
+      {editCode && (
+        <div className="mt-8 mx-auto max-w-md border-2 p-5 text-left"
+          style={{ borderColor: C.ink, background: C.paper }}>
+          <div className="flex items-center gap-2 mb-2" style={{ color: C.rust }}>
+            <KeyRound size={14} strokeWidth={2.5} />
+            <span className="text-[10px] tracking-[0.25em] uppercase font-bold">
+              Save your team code
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <code className="flex-1 text-2xl tracking-widest font-bold"
+              style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.15em", color: C.ink }}>
+              {editCode}
+            </code>
+            <button onClick={copyCode}
+              className="px-3 py-2 border-2 text-xs uppercase tracking-wider flex items-center gap-1.5 hover:bg-white/40 transition-colors"
+              style={{ borderColor: C.ink, color: C.ink, fontWeight: 700 }}>
+              {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+            </button>
+          </div>
+          <p className="mt-3 text-xs italic" style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
+            Use this code on the <strong>Manage My Team</strong> tab to add or remove players,
+            update phone, or change division. Anyone with this code can edit the team — share it
+            only with your co-captain.
+          </p>
+        </div>
+      )}
+
       <div className="mt-8 flex gap-3 justify-center flex-wrap">
         <button onClick={onRegisterAnother}
           className="px-6 py-3 text-sm uppercase tracking-widest border-2"
@@ -537,7 +797,290 @@ function ConfirmScreen({ entry, onRegisterAnother, onViewRoster }) {
   );
 }
 
-function RosterView({ registrations, loading, onRemove }) {
+// ─── Manage My Team ───────────────────────────────────────────────────────
+
+function ManageTeamFlow({ isAdmin }) {
+  const [team, setTeam] = useState(null);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const loadTeam = async () => {
+    setError("");
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed) {
+      setError("Enter your team code.");
+      return;
+    }
+    setLoading(true);
+    const { data, error: dbError } = await supabase
+      .from("registrations")
+      .select("*")
+      .eq("edit_code", trimmed)
+      .maybeSingle();
+    setLoading(false);
+
+    if (dbError) {
+      setError("Something went wrong. Please try again.");
+      return;
+    }
+    if (!data) {
+      setError("No team found with that code. Double-check and try again.");
+      return;
+    }
+    setTeam(data);
+  };
+
+  const handleBack = () => {
+    setTeam(null);
+    setCode("");
+    setError("");
+  };
+
+  if (team) {
+    return <EditTeamForm team={team} onBack={handleBack} isAdmin={isAdmin} />;
+  }
+
+  return (
+    <div className="grid lg:grid-cols-12 gap-8">
+      <aside className="lg:col-span-3">
+        <div className="text-[10px] uppercase tracking-[0.3em] mb-2" style={{ color: C.rust, fontWeight: 700 }}>
+          Captains Only
+        </div>
+        <h2 className="leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 56, color: C.ink }}>
+          Manage Team
+        </h2>
+        <p className="mt-3 text-sm italic" style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
+          Enter the team code you received when you registered. Lost it? Contact the organizers.
+        </p>
+      </aside>
+
+      <section className="lg:col-span-9 border p-6 md:p-8" style={{ borderColor: C.ink, background: C.paper }}>
+        <FormBlock number="01" label="Enter Team Code">
+          <div className="flex gap-2">
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              onKeyDown={(e) => { if (e.key === "Enter") loadTeam(); }}
+              placeholder="e.g. FAIT-X7K2"
+              autoCapitalize="characters"
+              className="flex-1 px-4 py-3 border bg-transparent text-lg tracking-widest focus:outline-none"
+              style={{ borderColor: C.ink, color: C.ink, fontFamily: "'Bebas Neue', sans-serif" }}
+            />
+            <button onClick={loadTeam} disabled={loading}
+              className="px-6 py-3 text-sm uppercase tracking-widest disabled:opacity-60 flex items-center gap-2"
+              style={{ background: C.rust, color: C.cream, fontWeight: 700 }}>
+              {loading ? <><Loader2 className="animate-spin" size={16} /> Loading</> : <>Load Team <ChevronRight size={16} /></>}
+            </button>
+          </div>
+          {error && (
+            <div className="mt-4 px-4 py-3 text-sm"
+              style={{ background: "#FBE3DB", color: C.rustDark, border: `1px solid ${C.rust}` }}>
+              {error}
+            </div>
+          )}
+        </FormBlock>
+      </section>
+    </div>
+  );
+}
+
+function EditTeamForm({ team, onBack, isAdmin }) {
+  const [captainName, setCaptainName] = useState(team.captain_name || "");
+  const [captainPhone, setCaptainPhone] = useState(team.phone || "");
+  const [division, setDivision] = useState(team.division);
+  const [players, setPlayers] = useState(
+    team.players && team.players.length > 0 ? [...team.players] : [""]
+  );
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
+
+  const addPlayerRow = () => setPlayers([...players, ""]);
+  const updatePlayer = (i, v) => {
+    const next = [...players]; next[i] = v; setPlayers(next);
+  };
+  const removePlayer = (i) => setPlayers(players.filter((_, idx) => idx !== i));
+
+  const handleSave = async () => {
+    setError("");
+    if (!captainName.trim()) return setError("Captain's name can't be empty.");
+    if (!captainPhone.trim()) return setError("Captain's phone can't be empty.");
+    const cleaned = players.map((p) => p.trim()).filter(Boolean);
+    if (cleaned.length === 0) return setError("You need at least one player.");
+
+    setSaving(true);
+    const { error: dbError } = await supabase
+      .from("registrations")
+      .update({
+        captain_name: captainName.trim(),
+        phone: captainPhone.trim(),
+        division,
+        players: cleaned,
+      })
+      .eq("id", team.id);
+    setSaving(false);
+
+    if (dbError) {
+      setError("Could not save changes: " + dbError.message);
+      return;
+    }
+    setSavedFlash(true);
+    setTimeout(() => setSavedFlash(false), 2500);
+  };
+
+  const handleDelete = async () => {
+    if (!isAdmin) {
+      alert("Only organizers can delete teams. Please contact the organizers.");
+      return;
+    }
+    if (!confirm(`Delete the entire ${splitChurch(team.church).name} team registration? This cannot be undone.`)) return;
+    const { error: dbError } = await supabase
+      .from("registrations")
+      .delete()
+      .eq("id", team.id);
+    if (dbError) {
+      alert("Could not delete: " + dbError.message);
+      return;
+    }
+    onBack();
+  };
+
+  const churchName = splitChurch(team.church).name;
+
+  return (
+    <div className="grid lg:grid-cols-12 gap-8">
+      <aside className="lg:col-span-3">
+        <button onClick={onBack}
+          className="inline-flex items-center gap-1 text-xs uppercase tracking-widest mb-4 hover:opacity-70"
+          style={{ color: C.inkSoft, fontWeight: 700 }}>
+          <ArrowLeft size={14} /> Back
+        </button>
+        <div className="text-[10px] uppercase tracking-[0.3em] mb-2" style={{ color: C.rust, fontWeight: 700 }}>
+          Editing
+        </div>
+        <h2 className="leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 44, color: C.ink }}>
+          {churchName}
+        </h2>
+        <p className="mt-3 text-xs uppercase tracking-widest" style={{ color: C.inkSoft }}>
+          Code: <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.1em", color: C.ink }}>
+            {team.edit_code}
+          </span>
+        </p>
+      </aside>
+
+      <section className="lg:col-span-9 border p-6 md:p-8" style={{ borderColor: C.ink, background: C.paper }}>
+        <FormBlock number="01" label="Division">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <ChoiceCard active={division === "mens"} onClick={() => setDivision("mens")}
+              title="Men's Division" icon={<Trophy size={18} />} />
+            <ChoiceCard active={division === "womens"} onClick={() => setDivision("womens")}
+              title="Women's Division" icon={<Trophy size={18} />} />
+          </div>
+        </FormBlock>
+
+        <FormBlock number="02" label="Captain">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: C.inkSoft }}>
+                Captain's Name
+              </label>
+              <input
+                value={captainName} onChange={(e) => setCaptainName(e.target.value)}
+                className="w-full px-4 py-3 border bg-transparent focus:outline-none"
+                style={{ borderColor: C.ink, color: C.ink }}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: C.inkSoft }}>
+                Captain's Phone
+              </label>
+              <input
+                type="tel"
+                value={captainPhone} onChange={(e) => setCaptainPhone(e.target.value)}
+                className="w-full px-4 py-3 border bg-transparent focus:outline-none"
+                style={{ borderColor: C.ink, color: C.ink }}
+              />
+            </div>
+          </div>
+        </FormBlock>
+
+        <FormBlock number="03" label="Players">
+          <div className="space-y-2">
+            {players.map((p, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <span className="w-9 text-center py-3 text-sm font-bold"
+                  style={{
+                    background: C.ink, color: C.cream,
+                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 18,
+                  }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <input
+                  value={p} onChange={(e) => updatePlayer(i, e.target.value)}
+                  placeholder={`Player ${i + 1} name`}
+                  className="flex-1 px-4 py-3 border bg-transparent focus:outline-none"
+                  style={{ borderColor: C.ink, color: C.ink }}
+                />
+                {players.length > 1 && (
+                  <button type="button" onClick={() => removePlayer(i)}
+                    className="px-3 py-3 border hover:opacity-70 transition-opacity"
+                    style={{ borderColor: C.ink, color: C.ink }}
+                    aria-label="Remove player">
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={addPlayerRow}
+            className="mt-3 inline-flex items-center gap-2 px-4 py-2 border-2 border-dashed text-sm uppercase tracking-wider hover:bg-white/40 transition-colors"
+            style={{ borderColor: C.ink, color: C.ink, fontWeight: 600 }}>
+            <Plus size={14} /> Add Another Player
+          </button>
+        </FormBlock>
+
+        <div className="mt-8 pt-6 border-t flex flex-wrap items-center gap-3" style={{ borderColor: C.line }}>
+          {error && (
+            <div className="w-full mb-2 px-4 py-3 text-sm"
+              style={{ background: "#FBE3DB", color: C.rustDark, border: `1px solid ${C.rust}` }}>
+              {error}
+            </div>
+          )}
+          {savedFlash && (
+            <div className="w-full mb-2 px-4 py-3 text-sm flex items-center gap-2"
+              style={{ background: "#DDF1DE", color: "#2D5A3D", border: `1px solid #2D5A3D` }}>
+              <Check size={16} /> Changes saved.
+            </div>
+          )}
+          <button onClick={handleSave} disabled={saving}
+            className="inline-flex items-center gap-3 px-8 py-4 text-base uppercase tracking-widest transition-all disabled:opacity-60"
+            style={{
+              background: C.rust, color: C.cream,
+              fontWeight: 700, letterSpacing: "0.15em",
+            }}>
+            {saving ? (
+              <><Loader2 className="animate-spin" size={18} /> Saving…</>
+            ) : (
+              <>Save Changes <Check size={18} /></>
+            )}
+          </button>
+          {isAdmin && (
+            <button onClick={handleDelete}
+              className="ml-auto px-4 py-3 text-xs uppercase tracking-widest border-2 hover:bg-white/40 transition-colors"
+              style={{ borderColor: C.ink, color: C.ink, fontWeight: 700 }}>
+              Delete Team (Admin)
+            </button>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ─── Roster + Free Agents ─────────────────────────────────────────────────
+
+function RosterView({ registrations, loading, isAdmin, onRemove }) {
   if (loading) return <LoadingState />;
   const teams = registrations.filter((r) => r.kind === "team");
   if (teams.length === 0) return <EmptyState message="No teams registered yet. Be the first." />;
@@ -547,13 +1090,13 @@ function RosterView({ registrations, loading, onRemove }) {
 
   return (
     <div className="space-y-12">
-      <DivisionBlock title="Men's Division" teams={mens} onRemove={onRemove} />
-      <DivisionBlock title="Women's Division" teams={womens} onRemove={onRemove} />
+      <DivisionBlock title="Men's Division" teams={mens} isAdmin={isAdmin} onRemove={onRemove} />
+      <DivisionBlock title="Women's Division" teams={womens} isAdmin={isAdmin} onRemove={onRemove} />
     </div>
   );
 }
 
-function DivisionBlock({ title, teams, onRemove }) {
+function DivisionBlock({ title, teams, isAdmin, onRemove }) {
   return (
     <section>
       <div className="flex items-baseline justify-between border-b-2 pb-2 mb-6" style={{ borderColor: C.ink }}>
@@ -574,22 +1117,24 @@ function DivisionBlock({ title, teams, onRemove }) {
         </p>
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
-          {teams.map((t) => <TeamCard key={t.id} team={t} onRemove={onRemove} />)}
+          {teams.map((t) => <TeamCard key={t.id} team={t} isAdmin={isAdmin} onRemove={onRemove} />)}
         </div>
       )}
     </section>
   );
 }
 
-function TeamCard({ team, onRemove }) {
+function TeamCard({ team, isAdmin, onRemove }) {
   const { name: churchShort, location: churchLoc } = splitChurch(team.church);
   return (
     <article className="border p-5 relative group" style={{ borderColor: C.ink, background: C.paper }}>
-      <button onClick={() => onRemove(team.id)}
-        className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{ color: C.rust }} title="Remove registration">
-        <X size={16} />
-      </button>
+      {isAdmin && (
+        <button onClick={() => onRemove(team.id)}
+          className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ color: C.rust }} title="Remove (Admin)">
+          <X size={16} />
+        </button>
+      )}
 
       <div className="text-[10px] uppercase tracking-[0.25em] mb-1"
         style={{ color: C.rust, fontWeight: 700 }}>
@@ -619,7 +1164,7 @@ function TeamCard({ team, onRemove }) {
   );
 }
 
-function FreeAgentsView({ registrations, loading, onRemove }) {
+function FreeAgentsView({ registrations, loading, isAdmin, onRemove }) {
   if (loading) return <LoadingState />;
   const agents = registrations.filter((r) => r.kind === "free_agent");
   if (agents.length === 0) {
@@ -630,13 +1175,13 @@ function FreeAgentsView({ registrations, loading, onRemove }) {
 
   return (
     <div className="space-y-12">
-      <FreeAgentDivision title="Men's Free Agents" agents={mens} onRemove={onRemove} />
-      <FreeAgentDivision title="Women's Free Agents" agents={womens} onRemove={onRemove} />
+      <FreeAgentDivision title="Men's Free Agents" agents={mens} isAdmin={isAdmin} onRemove={onRemove} />
+      <FreeAgentDivision title="Women's Free Agents" agents={womens} isAdmin={isAdmin} onRemove={onRemove} />
     </div>
   );
 }
 
-function FreeAgentDivision({ title, agents, onRemove }) {
+function FreeAgentDivision({ title, agents, isAdmin, onRemove }) {
   return (
     <section>
       <div className="flex items-baseline justify-between border-b-2 pb-2 mb-6" style={{ borderColor: C.ink }}>
@@ -681,12 +1226,14 @@ function FreeAgentDivision({ title, agents, onRemove }) {
                     {churchShort}{churchLoc ? ` · ${churchLoc}` : ""}
                   </div>
                 </div>
-                <button onClick={() => onRemove(a.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-2"
-                  style={{ color: C.rust }}
-                  aria-label="Remove free agent">
-                  <X size={16} />
-                </button>
+                {isAdmin && (
+                  <button onClick={() => onRemove(a.id)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-2"
+                    style={{ color: C.rust }}
+                    aria-label="Remove (Admin)">
+                    <X size={16} />
+                  </button>
+                )}
               </li>
             );
           })}
