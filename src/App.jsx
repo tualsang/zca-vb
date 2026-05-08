@@ -19,10 +19,8 @@ const CHURCHES = [
   "Zomi Christian Church - Columbus, OH",
   "Zomi Christian Church - Nashville, TN",
   "Full Life - Tulsa, OK",
-  "Free Agent",
+  "Others",
 ];
-
-const FREE_AGENT_TEAM_SIZE = 6;
 
 const C = {
   cream: "#F1EADA",
@@ -34,6 +32,16 @@ const C = {
   olive: "#5C6B3A",
   line: "#D9CFB8",
 };
+
+// Split "Church Name - Location" or "Church Name — Location" on either dash
+function splitChurch(full) {
+  if (!full) return { name: "—", location: "" };
+  const parts = full.split(/\s+[—-]\s+/);
+  return {
+    name: parts[0]?.trim() || full,
+    location: parts.slice(1).join(" - ").trim(),
+  };
+}
 
 export default function App() {
   const [tab, setTab] = useState("register");
@@ -215,8 +223,10 @@ function RegisterForm({ onSubmit }) {
   const [church, setChurch] = useState("");
   const [division, setDivision] = useState("");
   const [captainName, setCaptainName] = useState("");
+  const [captainPhone, setCaptainPhone] = useState("");
   const [players, setPlayers] = useState([""]);
   const [agentName, setAgentName] = useState("");
+  const [agentPhone, setAgentPhone] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -236,18 +246,22 @@ function RegisterForm({ onSubmit }) {
     try {
       if (kind === "team") {
         if (!captainName.trim()) { setError("Enter the captain's name."); setSubmitting(false); return; }
+        if (!captainPhone.trim()) { setError("Enter the captain's phone number."); setSubmitting(false); return; }
         const cleaned = players.map((p) => p.trim()).filter(Boolean);
         if (cleaned.length === 0) { setError("Add at least one player to your roster."); setSubmitting(false); return; }
         await onSubmit({
           kind: "team", church, division,
           captain_name: captainName.trim(),
+          phone: captainPhone.trim(),
           players: cleaned,
         });
       } else {
         if (!agentName.trim()) { setError("Enter your name."); setSubmitting(false); return; }
+        if (!agentPhone.trim()) { setError("Enter your phone number."); setSubmitting(false); return; }
         await onSubmit({
           kind: "free_agent", church, division,
           player_name: agentName.trim(),
+          phone: agentPhone.trim(),
         });
       }
     } finally {
@@ -265,8 +279,8 @@ function RegisterForm({ onSubmit }) {
           Sign Up
         </h2>
         <p className="mt-3 text-sm italic" style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
-          Captains register their entire roster in one go. No team? Sign up as a free agent and
-          we'll group you with others from across the conference.
+          Captains register their entire roster in one go. No team? Sign up as a free agent
+          and we'll be in touch about placement.
         </p>
       </aside>
 
@@ -281,7 +295,7 @@ function RegisterForm({ onSubmit }) {
             <ChoiceCard
               active={kind === "free_agent"} onClick={() => setKind("free_agent")}
               title="Free Agent" icon={<Flag size={18} />}
-              desc="I don't have a team. Place me on a free-agent squad."
+              desc="I don't have a team. I'm registering solo."
             />
           </div>
         </FormBlock>
@@ -313,16 +327,33 @@ function RegisterForm({ onSubmit }) {
         {kind === "team" && division && (
           <FormBlock number="04" label="Roster">
             <div className="space-y-3">
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: C.inkSoft }}>
-                  Captain's Name
-                </label>
-                <input
-                  value={captainName} onChange={(e) => setCaptainName(e.target.value)}
-                  placeholder="e.g. Cin Khup"
-                  className="w-full px-4 py-3 border bg-transparent focus:outline-none"
-                  style={{ borderColor: C.ink, color: C.ink }}
-                />
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: C.inkSoft }}>
+                    Captain's Name
+                  </label>
+                  <input
+                    value={captainName} onChange={(e) => setCaptainName(e.target.value)}
+                    placeholder="e.g. Cin Khup"
+                    className="w-full px-4 py-3 border bg-transparent focus:outline-none"
+                    style={{ borderColor: C.ink, color: C.ink }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: C.inkSoft }}>
+                    Captain's Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={captainPhone} onChange={(e) => setCaptainPhone(e.target.value)}
+                    placeholder="e.g. (555) 123-4567"
+                    className="w-full px-4 py-3 border bg-transparent focus:outline-none"
+                    style={{ borderColor: C.ink, color: C.ink }}
+                  />
+                  <p className="mt-1 text-[10px] italic" style={{ color: C.inkSoft, fontFamily: "'Newsreader', serif" }}>
+                    For organizers only — not shown publicly.
+                  </p>
+                </div>
               </div>
 
               <div className="pt-2">
@@ -367,16 +398,35 @@ function RegisterForm({ onSubmit }) {
         )}
 
         {kind === "free_agent" && division && (
-          <FormBlock number="04" label="Your name">
-            <input
-              value={agentName} onChange={(e) => setAgentName(e.target.value)}
-              placeholder="e.g. Sam Okonkwo"
-              className="w-full px-4 py-3 border bg-transparent focus:outline-none"
-              style={{ borderColor: C.ink, color: C.ink }}
-            />
-            <p className="mt-2 text-xs italic" style={{ color: C.inkSoft, fontFamily: "'Newsreader', serif" }}>
-              Free agents are auto-grouped into teams of {FREE_AGENT_TEAM_SIZE} per division.
-            </p>
+          <FormBlock number="04" label="Your details">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: C.inkSoft }}>
+                  Your Name
+                </label>
+                <input
+                  value={agentName} onChange={(e) => setAgentName(e.target.value)}
+                  placeholder="e.g. Sam Okonkwo"
+                  className="w-full px-4 py-3 border bg-transparent focus:outline-none"
+                  style={{ borderColor: C.ink, color: C.ink }}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: C.inkSoft }}>
+                  Your Phone
+                </label>
+                <input
+                  type="tel"
+                  value={agentPhone} onChange={(e) => setAgentPhone(e.target.value)}
+                  placeholder="e.g. (555) 123-4567"
+                  className="w-full px-4 py-3 border bg-transparent focus:outline-none"
+                  style={{ borderColor: C.ink, color: C.ink }}
+                />
+                <p className="mt-1 text-[10px] italic" style={{ color: C.inkSoft, fontFamily: "'Newsreader', serif" }}>
+                  For organizers only — not shown publicly.
+                </p>
+              </div>
+            </div>
           </FormBlock>
         )}
 
@@ -452,6 +502,7 @@ function ChoiceCard({ active, onClick, title, desc, icon }) {
 
 function ConfirmScreen({ entry, onRegisterAnother, onViewRoster }) {
   if (!entry) return null;
+  const churchName = splitChurch(entry.church).name;
   return (
     <div className="max-w-2xl mx-auto text-center py-12">
       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6"
@@ -466,7 +517,7 @@ function ConfirmScreen({ entry, onRegisterAnother, onViewRoster }) {
       </h2>
       <p className="mt-3 italic text-lg" style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
         {entry.kind === "team"
-          ? `${entry.players?.length || 0} ${entry.players?.length === 1 ? "player" : "players"} registered for ${entry.church?.split("—")[0].trim()}.`
+          ? `${entry.players?.length || 0} ${entry.players?.length === 1 ? "player" : "players"} registered for ${churchName}.`
           : `You're on the free-agent list for the ${entry.division === "mens" ? "Men's" : "Women's"} division.`}
       </p>
 
@@ -531,8 +582,7 @@ function DivisionBlock({ title, teams, onRemove }) {
 }
 
 function TeamCard({ team, onRemove }) {
-  const churchShort = team.church?.split("—")[0].trim() || "—";
-  const churchLoc = team.church?.split("—")[1]?.trim();
+  const { name: churchShort, location: churchLoc } = splitChurch(team.church);
   return (
     <article className="border p-5 relative group" style={{ borderColor: C.ink, background: C.paper }}>
       <button onClick={() => onRemove(team.id)}
@@ -587,11 +637,6 @@ function FreeAgentsView({ registrations, loading, onRemove }) {
 }
 
 function FreeAgentDivision({ title, agents, onRemove }) {
-  const groups = [];
-  for (let i = 0; i < agents.length; i += FREE_AGENT_TEAM_SIZE) {
-    groups.push(agents.slice(i, i + FREE_AGENT_TEAM_SIZE));
-  }
-
   return (
     <section>
       <div className="flex items-baseline justify-between border-b-2 pb-2 mb-6" style={{ borderColor: C.ink }}>
@@ -602,55 +647,50 @@ function FreeAgentDivision({ title, agents, onRemove }) {
           {title}
         </h2>
         <span className="text-sm uppercase tracking-widest" style={{ color: C.inkSoft }}>
-          {agents.length} {agents.length === 1 ? "player" : "players"} · {groups.length} {groups.length === 1 ? "squad" : "squads"}
+          {agents.length} {agents.length === 1 ? "player" : "players"}
         </span>
       </div>
 
-      {groups.length === 0 ? (
+      {agents.length === 0 ? (
         <p className="italic" style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
           No free agents in this division yet.
         </p>
       ) : (
-        <div className="grid md:grid-cols-2 gap-4">
-          {groups.map((g, idx) => (
-            <article key={idx} className="border p-5" style={{ borderColor: C.ink, background: C.paper }}>
-              <div className="text-[10px] uppercase tracking-[0.25em] mb-1"
-                style={{ color: C.rust, fontWeight: 700 }}>
-                Auto-Squad
-              </div>
-              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, lineHeight: 1, color: C.ink }}>
-                Free Agents {String.fromCharCode(65 + idx)}
-              </h3>
-              <div className="text-xs italic mt-1 mb-4" style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
-                {g.length} of {FREE_AGENT_TEAM_SIZE} players
-              </div>
-              <ol className="space-y-1.5">
-                {g.map((a, i) => (
-                  <li key={a.id} className="flex items-center gap-3 text-sm group">
-                    <span className="w-6 text-center text-xs"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, color: C.rust }}>
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    <span className="flex-1 pb-0.5" style={{ color: C.ink }}>
-                      <span className="border-b border-dotted pb-0.5" style={{ borderColor: C.line }}>
-                        {a.player_name}
-                      </span>
-                      <span className="block text-[10px] uppercase tracking-widest mt-0.5"
-                        style={{ color: C.inkSoft }}>
-                        {a.church?.split("—")[0].trim()}
-                      </span>
-                    </span>
-                    <button onClick={() => onRemove(a.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ color: C.rust }}>
-                      <X size={14} />
-                    </button>
-                  </li>
-                ))}
-              </ol>
-            </article>
-          ))}
-        </div>
+        <ol className="border" style={{ borderColor: C.ink, background: C.paper }}>
+          {agents.map((a, i) => {
+            const { name: churchShort, location: churchLoc } = splitChurch(a.church);
+            return (
+              <li key={a.id}
+                className="flex items-center gap-4 px-5 py-4 group"
+                style={{
+                  borderBottom: i < agents.length - 1 ? `1px solid ${C.line}` : "none",
+                }}>
+                <span className="w-10 text-center"
+                  style={{
+                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 24,
+                    color: C.rust, lineHeight: 1,
+                  }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-base truncate" style={{ color: C.ink }}>
+                    {a.player_name}
+                  </div>
+                  <div className="text-[11px] uppercase tracking-widest mt-0.5 truncate"
+                    style={{ color: C.inkSoft }}>
+                    {churchShort}{churchLoc ? ` · ${churchLoc}` : ""}
+                  </div>
+                </div>
+                <button onClick={() => onRemove(a.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-2"
+                  style={{ color: C.rust }}
+                  aria-label="Remove free agent">
+                  <X size={16} />
+                </button>
+              </li>
+            );
+          })}
+        </ol>
       )}
     </section>
   );
