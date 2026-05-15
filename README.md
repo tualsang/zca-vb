@@ -1,170 +1,89 @@
-# Volleyball Tournament Registration
+# Volleyball Tournament
 
-A self-hosted registration site for a multi-church volleyball tournament. Captains register their full roster in one go; solo players sign up as free agents and get auto-grouped into squads. Live public roster updates in real-time.
+A registration and tournament site for the **ZCA Conference 2026 Volleyball Tournament** — a one-day, multi-church event held **July 10, 2026** in Halethorpe, Maryland.
 
-**Stack:** React (Vite) + Tailwind + Supabase (Postgres) + Vercel
+The site does three things across the lifecycle of the tournament:
 
----
+1. Captures team and free-agent registrations leading up to the deadline
+2. Runs the tournament on game day — brackets, schedules, and live scores
+3. Settles into a recap view once the event ends
 
-## Quick Start (the whole flow, top to bottom)
-
-You'll go from this zip to a live URL in ~45 minutes.
-
----
-
-### Part 1: Set up Supabase (10 min)
-
-1. Go to **https://supabase.com** → sign up with GitHub
-2. Click **New project**
-   - Name: `volleyball-tournament`
-   - Database password: click "Generate" and **save it** somewhere
-   - Region: pick the closest to most users
-3. Wait ~2 min for it to provision
-4. Click **SQL Editor** in the sidebar → **New query**
-5. Open `supabase-schema.sql` from this folder, copy the whole thing, paste into the editor, click **Run**
-6. You should see "Success. No rows returned."
-
-**Grab your API keys:**
-
-7. Click the gear icon (Settings) → **API**
-8. Copy two values somewhere safe:
-   - **Project URL** (e.g. `https://abcdefgh.supabase.co`)
-   - **anon / public key** (long string starting with `eyJ...`)
+It's built as a single React app with a real-time backend: when a team registers, everyone currently on the site sees them appear without refreshing.
 
 ---
 
-### Part 2: Run it locally (10 min)
+## How registration works
 
-**Install Node.js if you don't have it:**
-```bash
-node --version
-```
-If that errors, download Node LTS from https://nodejs.org and install.
+There are two ways to sign up.
 
-**From this folder (the one with `package.json`):**
+**Team captains** register their full roster in one pass — they pick their church, choose a division (Men's or Women's), enter their own info as captain, then add each of their players. After submitting, the captain is shown a unique **edit code**, something like `FAIT-X7K2`. That code is the key to the *Manage Team* tab: the captain can come back any time before the deadline to add players, remove no-shows, or fix typos — without needing to contact the organizer.
 
-1. Open `.env.local` in any text editor
-2. Replace `YOUR_PROJECT_ID` and the placeholder anon key with your real values from Part 1, step 8
-3. Save the file
+**Free agents** are players who don't have a team. They sign up individually under their church and division, and they show up in the Free Agents tab where everyone can see them. After registration closes, free agents are grouped into ad-hoc squads so nobody who wants to play gets left out.
 
-**Then in terminal:**
-
-```bash
-cd volleyball-tournament   # or wherever you extracted this
-npm install
-npm run dev
-```
-
-Open **http://localhost:5173** in your browser. You should see the form. Try registering a test team — if it shows up in the Roster tab and survives a page refresh, your database is connected. ✅
-
-If it doesn't work, open browser console (F12) and check for errors. The most common issue is a typo in `.env.local` — also remember you must restart `npm run dev` after editing env files.
+The church list is a fixed dropdown with an "Others" option for anyone outside the ten participating churches.
 
 ---
 
-### Part 3: Customize for your tournament (5 min)
+## The countdown and the four phases
 
-Open `src/App.jsx` and find the `CHURCHES` array near the top. Replace those with your actual 10 churches. Format: `"Church Name — City, ST"` (the long dash matters — the app splits on it for display).
+Every page has a live banner showing where we are in the tournament lifecycle. The site behaves differently in each phase — all times Eastern.
 
-Save the file. The dev server hot-reloads automatically.
+| Phase | When | What the site shows |
+|---|---|---|
+| **Pre-registration** | Until June 14, 11:59 PM ET | Countdown to the deadline; registration form open to everyone |
+| **Pre-event** | June 14 → July 10 | Countdown to game day; public signup closed (admin can still add late entries) |
+| **Live** | July 10, 9 AM – 5 PM ET | Game-day banner; signup is over; brackets, schedule, and live scores take over |
+| **Complete** | After 5 PM, July 10 | Countdown is gone; final standings and a thank-you recap |
 
----
-
-### Part 4: Push to GitHub (5 min)
-
-1. Go to **https://github.com** → sign in (or sign up)
-2. Click **+** (top-right) → **New repository**
-3. Name it `volleyball-tournament` → **Public** or Private both fine → **don't** check any init boxes → **Create repository**
-4. GitHub shows you commands. From your project folder, run:
-
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/volleyball-tournament.git
-git push -u origin main
-```
-
-Replace `YOUR_USERNAME` with your actual GitHub username.
-
-> **Sanity check:** Go to your repo on github.com. You should NOT see `.env.local` in the file list. If you do, delete it from the repo immediately and rotate your Supabase anon key.
+The transitions happen automatically based on the clock — no one has to flip a switch.
 
 ---
 
-### Part 5: Deploy to Vercel (5 min)
+## What visitors see
 
-1. Go to **https://vercel.com/signup** → sign up with GitHub
-2. From the dashboard: **Add New → Project**
-3. Find `volleyball-tournament` and click **Import**
-4. Vercel auto-detects Vite. **Before clicking Deploy:**
-   - Expand **Environment Variables**
-   - Add `VITE_SUPABASE_URL` = your Supabase URL
-   - Add `VITE_SUPABASE_ANON_KEY` = your anon key
-5. Click **Deploy**
+Anyone landing on the site, without logging in, can:
 
-Wait ~1 min. You'll get a URL like `volleyball-tournament-abc123.vercel.app`.
+- See the **Roster** — every registered team, grouped by church and division
+- See the **Free Agents** tab — every solo player and their division
+- See the **Scoreboard** at the top — live counts of total players, teams, and free agents
+- Read the **Info** tab — format, date, address, time, and house rules
+- Once it's game day: follow the schedule, live brackets, and current scores
 
-**That's your shareable link.** Send it to the churches.
+The page updates in real time. If you're watching the Roster tab and a new team registers from somewhere else, they appear instantly.
 
 ---
 
-### Part 6: Lock it down before going live
+## What the admin sees
 
-The current setup lets anyone delete registrations (handy for testing). Before you share the link with churches:
+There's a small "Admin" link in the footer. After signing in, the organizer gets:
 
-1. Supabase → SQL Editor
-2. Run:
-   ```sql
-   drop policy "Anyone can delete registrations" on registrations;
-   ```
-3. Now only you (via the Supabase Table Editor) can delete rows.
+- An "Admin" badge in the header so they know they're logged in
+- The ability to **register teams any time**, including after the public deadline
+- The ability to **remove** duplicate or test registrations
+- Access to the **Admin Dashboard** (game-day controls), where they:
+  - Pick the format per division once registration closes
+  - Seed teams into pools (when applicable)
+  - Generate the full schedule
+  - Enter scores courtside from their phone
 
----
-
-## Making changes later
-
-Any push to GitHub auto-deploys to Vercel within ~1 min.
-
-```bash
-git add .
-git commit -m "describe what you changed"
-git push
-```
-
-Want to add another church? Edit `CHURCHES` in `src/App.jsx`, push, done.
+The Admin Dashboard is designed mobile-first, because the organizer will be using it one-handed on the sidelines, not at a desk.
 
 ---
 
-## Troubleshooting
+## Tournament formats
 
-| Problem | Fix |
-|---|---|
-| Form loads but registrations don't save | Check browser console. Usually env vars missing/typo, or you forgot to run the SQL schema |
-| `npm run dev` fails | Run `npm install` again. Make sure you're in the project root (folder with `package.json`) |
-| Vercel build fails | Check the build log — usually a typo in env var names. They must be EXACTLY `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` |
-| Page is blank, no errors | Hard refresh (Cmd+Shift+R / Ctrl+Shift+R) |
-| Realtime updates don't work | Supabase → Database → Replication → enable replication for the `registrations` table |
-| Can't see `.env.local` in Finder | macOS hides dotfiles. Press Cmd+Shift+. (period) in Finder to toggle |
+Once registration closes, the admin picks the format for each division based on how many teams signed up. Two formats are supported:
+
+**Round Robin** — for divisions with **4–5 teams**. Every team plays every other team. The top two in the standings (by wins, then head-to-head, then point differential) meet in a championship match.
+
+**Pool Play + Bracket** — for divisions with **6 or more teams**. Teams are split into two pools and play a round-robin within their pool. The top two from each pool advance to a 4-team single-elimination bracket: Pool A's #1 plays Pool B's #2 in one semifinal, and Pool B's #1 plays Pool A's #2 in the other. Winners meet in the final.
+
+The two divisions (Men's and Women's) can run different formats — they're independent.
 
 ---
 
-## File structure
+## Tech
 
-```
-volleyball-tournament/
-├── .env.local                  ← your Supabase keys (NEVER commit)
-├── .gitignore
-├── README.md                   ← this file
-├── index.html
-├── package.json
-├── postcss.config.js
-├── supabase-schema.sql         ← run this in Supabase once
-├── tailwind.config.js
-├── vite.config.js
-└── src/
-    ├── App.jsx                 ← main component, edit CHURCHES here
-    ├── index.css
-    ├── main.jsx
-    └── lib/
-        └── supabase.js         ← database client
-```
+React + Vite + Tailwind on the frontend, Supabase (Postgres + Auth + Realtime) on the backend, deployed on Vercel. Kept deliberately small for a one-day event — no router, no global state library, no TypeScript. The whole thing is meant to be readable end-to-end in an afternoon.
+
+For developer documentation — architecture, conventions, database schema, and design tokens — see [CLAUDE.md](./CLAUDE.md).

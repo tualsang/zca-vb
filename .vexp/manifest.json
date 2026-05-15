@@ -1,0 +1,41 @@
+{
+  "file_hashes": {
+    ".antigravity/rules.md": "a5da22effc186bbaa450a05ddce446786ca628d22c9fb52b9d682244ebc8bf1b",
+    "README.md": "61e72b39511f1ed46fa8a2ff383570b5ac443b0aa1ed6d75f99c213dc4839dff",
+    "postcss.config.js": "76ac2075c5fb4608808727e7612c72a3e1bae4a7e9c7b53c9aa8b0d6170dceed",
+    "src/App.jsx": "8f7e7887ec3610995863001d4c0fedac38346df0da3fc308af0cb4b6befe943a",
+    "src/components/auth/LoginModal.jsx": "6fe3cc826fb7b5376360851bd93fd0bf0dd03d8463d750e02f09b8a645372fa1",
+    "src/components/header/CountdownBanner.jsx": "b8e17e7784d518682d464f9602d806741940a64c583801ccd68508bf2619a601",
+    "src/components/header/ScoreboardStats.jsx": "15a3950faffeaa3d1824f4210cbf1db5efa5f3135cbcc51f8a1801414d142082",
+    "src/components/inputs/NameInput.jsx": "14faa25cb534330a041015131b5f5fc05706e2bd90e6dc5a72cbe8443d009f3d",
+    "src/components/inputs/PhoneInput.jsx": "dbbf8480f5a4815f069ba7e8fcf4191642843659b1ecc0a953428d83def90275",
+    "src/components/shared/ChoiceCard.jsx": "2918c45fc649c8184f9ec6b40b5602a551e7ea32c591060f889326f6a0cae1a2",
+    "src/components/shared/FormBlock.jsx": "68ce31beecb452100fba067872d42ba96c95a98fd0f26bd06e79c2a0a8e194cb",
+    "src/components/shared/Status.jsx": "c5e6d1fb06c155b085d7475c677d6af1c75a4cc3ac87332643ce2e133530cebe",
+    "src/components/shared/TabButton.jsx": "67ef6894ec1ab150946bec09f46f1456cd5ef07223681c6f3787a11cd9cbc11d",
+    "src/components/views/ConfirmScreen.jsx": "22f1221ca6c629192e7e7ba74460d16e6ff081456b557afd626e08c1e1425ffb",
+    "src/components/views/FreeAgentsView.jsx": "c34c9fa2b2290d3cdc99a358bf916d2ec511c8a3767b91ef9bbb5868526331c3",
+    "src/components/views/InfoView.jsx": "b5ae2b380ee70ed360a29cef594450dbafd2a1354dc3741595999b6972037c04",
+    "src/components/views/ManageTeamFlow.jsx": "205b0b263d784a171785ef9afbfe833e4f732f7b0fddf163ba421bdffce55f78",
+    "src/components/views/RegisterForm.jsx": "595662da97aba033388272c4f53d818c785e37e7c39943a96c74c7d460cd49de",
+    "src/components/views/RegistrationClosedView.jsx": "ac9a8730fbaf8471ee59026fc3de8848a96157cd14bed8ae662d825146be9a07",
+    "src/components/views/RosterView.jsx": "b4046dfc78891eee2002ac364d141e8e57c4dc30fb0540966d27cc75d15d76ba",
+    "src/hooks/useCountdown.js": "1d74801ba3d10ae1f3199f3a28c4de12bbbcac78e2890ae819a4e6e1f5c0e38b",
+    "src/lib/constants.js": "bd9d177ae004219a4caee2282183995c0ffcba8c7d40f4ec7211e75f9f7b42f8",
+    "src/lib/helpers.js": "19d2e6b89ed0c8e1664866796beffdb65af4d458d38e33505127e540ea6c8899",
+    "src/lib/phase.js": "554c7eb66e44ca8f6ae1b0d0c3493d492c79958e956447fec3e4a85a9521d83a",
+    "src/lib/supabase.js": "5dd6f976093ef65655e17e028d35bc905717ff3ca2eabd565d0a1e4ed4e18641",
+    "src/main.jsx": "800811998f9ed31a9a1ff4632e57d786898ebd213ba139927696eedcc50b6fa8",
+    "tailwind.config.js": "aba97ee6092efae33b23ebd651b8615105f760c74a95bacbfecd5f82761c93d6",
+    "vite.config.js": "c2a8151418c61d3b186f1e526aafdc4342797c71bfbdf5a3e2398946802fa2e0"
+  },
+  "indexed_at_commit": "dc06bfd13ee986c408e295e3baf87d14e7ae6693",
+  "indexed_at_timestamp": "2026-05-15T15:03:10.162547+00:00",
+  "schema_version": 3,
+  "stats": {
+    "total_edges": 122,
+    "total_files": 28,
+    "total_nodes": 65
+  },
+  "vexp_version": "2.0.13"
+}
