@@ -90,17 +90,19 @@ export default function App() {
   const handleSignOut = async () => { await supabase.auth.signOut(); };
 
   const stats = useMemo(() => {
-    let players = 0, teams = 0, freeAgents = 0;
+    let players = 0, teamPlayers = 0, teams = 0, freeAgents = 0;
     registrations.forEach((r) => {
       if (r.kind === "team") {
         teams++;
-        players += teamHeadcount(r);
+        const count = teamHeadcount(r);
+        players += count;
+        teamPlayers += count;
       } else {
         freeAgents++;
         players++;
       }
     });
-    return { players, teams, freeAgents };
+    return { players, teamPlayers, teams, freeAgents };
   }, [registrations]);
 
   // Public registration is only open in phase 1. Admin can always register.
@@ -134,32 +136,52 @@ export default function App() {
             fontFamily: "'Newsreader', serif", color: C.inkSoft,
             fontSize: "clamp(14px, 4vw, 17px)",
           }}>
-            Captains: Register your roster below.
+            Captains: Register your roster below.<br />
             Others: Register as Free Agents
           </p>
 
           <CountdownBanner countdown={countdown} isAdmin={isAdmin} />
 
           <div className="mt-4 sm:mt-5 flex justify-center">
-            <ScoreboardStats stats={stats} loading={loading} />
+            <ScoreboardStats stats={stats} loading={loading} className="w-full sm:w-auto" />
           </div>
 
-          <nav className="mt-5 sm:mt-6 flex gap-1.5 sm:gap-2 flex-wrap items-stretch justify-center">
-            <TabButton active={tab === "register"} onClick={() => switchTab("register")} primary>
-              <UserPlus size={14} /> Register
-            </TabButton>
-            <TabButton active={tab === "manage"} onClick={() => switchTab("manage")}>
-              <KeyRound size={14} /> <span className="hidden sm:inline">Manage My Team</span><span className="sm:hidden">Manage</span>
-            </TabButton>
-            <TabButton active={tab === "roster"} onClick={() => switchTab("roster")}>
-              <Users size={14} /> Roster <span className="opacity-70">({stats.players})</span>
-            </TabButton>
-            <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")}>
-              <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
-            </TabButton>
-            <TabButton active={tab === "info"} onClick={() => switchTab("info")}>
-              <Info size={14} /> Info
-            </TabButton>
+          <nav className="mt-5 sm:mt-6">
+            {/* Mobile: 2-row grid. Desktop: single row flex */}
+            <div className="grid grid-cols-2 sm:hidden gap-1.5">
+              <TabButton active={tab === "register"} onClick={() => switchTab("register")} primary fullWidth>
+                <UserPlus size={14} /> Register
+              </TabButton>
+              <TabButton active={tab === "manage"} onClick={() => switchTab("manage")} fullWidth>
+                <KeyRound size={14} /> Manage
+              </TabButton>
+              <TabButton active={tab === "roster"} onClick={() => switchTab("roster")} fullWidth>
+                <Users size={14} /> Roster <span className="opacity-70">({stats.teamPlayers})</span>
+              </TabButton>
+              <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")} fullWidth>
+                <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
+              </TabButton>
+              <TabButton active={tab === "info"} onClick={() => switchTab("info")} fullWidth>
+                <Info size={14} /> Info
+              </TabButton>
+            </div>
+            <div className="hidden sm:flex gap-2 flex-wrap items-stretch justify-center">
+              <TabButton active={tab === "register"} onClick={() => switchTab("register")} primary>
+                <UserPlus size={14} /> Register
+              </TabButton>
+              <TabButton active={tab === "manage"} onClick={() => switchTab("manage")}>
+                <KeyRound size={14} /> Manage My Team
+              </TabButton>
+              <TabButton active={tab === "roster"} onClick={() => switchTab("roster")}>
+                <Users size={14} /> Roster <span className="opacity-70">({stats.teamPlayers})</span>
+              </TabButton>
+              <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")}>
+                <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
+              </TabButton>
+              <TabButton active={tab === "info"} onClick={() => switchTab("info")}>
+                <Info size={14} /> Info
+              </TabButton>
+            </div>
           </nav>
         </div>
       </header>

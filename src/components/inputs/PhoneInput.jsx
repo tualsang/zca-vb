@@ -11,7 +11,7 @@ export function PhoneInput({ value, onChange, placeholder, ...props }) {
       onChange={(e) => onChange(sanitizePhoneInput(e.target.value))}
       placeholder={placeholder || "(555) 123-4567"}
       className="w-full px-4 py-3 border bg-transparent focus:outline-none text-base"
-      style={{ borderColor: C.ink, color: C.ink }}
+      style={{ borderColor: C.ink, color: C.ink, fontSize: 16 }}
       {...props}
     />
   );

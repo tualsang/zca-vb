@@ -11,7 +11,7 @@ export function NameInput({ value, onChange, placeholder, ...props }) {
       onChange={(e) => onChange(sanitizeNameInput(e.target.value))}
       placeholder={placeholder}
       className="w-full px-4 py-3 border bg-transparent focus:outline-none text-base"
-      style={{ borderColor: C.ink, color: C.ink }}
+      style={{ borderColor: C.ink, color: C.ink, fontSize: 16 }}
       {...props}
     />
   );

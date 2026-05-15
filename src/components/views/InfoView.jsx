@@ -14,7 +14,7 @@ export function InfoView() {
           fontFamily: "'Bebas Neue', sans-serif",
           fontSize: "clamp(40px, 10vw, 56px)", color: C.ink,
         }}>
-          Tournament Info
+          Info
         </h2>
         <p className="mt-3 text-sm italic" style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
           Everything you need to know before tournament day.

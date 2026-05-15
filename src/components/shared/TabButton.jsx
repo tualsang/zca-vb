@@ -1,11 +1,13 @@
 import { C } from "../../lib/constants";
 
-export function TabButton({ active, onClick, children, primary }) {
+export function TabButton({ active, onClick, children, primary, fullWidth }) {
+  const widthClass = fullWidth ? "w-full justify-center" : "";
+
   // Primary tab (Register) — always rust-colored, highlighted whether active or not
   if (primary) {
     return (
       <button onClick={onClick}
-        className="px-3 sm:px-4 py-2 text-xs sm:text-sm uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 transition-all border-2"
+        className={`px-3 sm:px-4 py-2.5 sm:py-2 text-xs sm:text-sm uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 transition-all border-2 ${widthClass}`}
         style={{
           background: C.rust,
           color: C.cream,
@@ -21,7 +23,7 @@ export function TabButton({ active, onClick, children, primary }) {
   // Secondary tabs — outline only, fill in on active
   return (
     <button onClick={onClick}
-      className="px-3 sm:px-4 py-2 text-xs sm:text-sm uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 transition-all border"
+      className={`px-3 sm:px-4 py-2.5 sm:py-2 text-xs sm:text-sm uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 transition-all border ${widthClass}`}
       style={{
         background: active ? C.ink : "transparent",
         color: active ? C.cream : C.inkSoft,

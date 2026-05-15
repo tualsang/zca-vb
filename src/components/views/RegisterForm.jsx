@@ -106,8 +106,8 @@ export function RegisterForm({ onSubmit, registrations, onSwitchToManage, isAdmi
         {kind && (
           <FormBlock number="02" label="Which church do you represent?">
             <select value={church} onChange={(e) => setChurch(e.target.value)}
-              className="w-full px-4 py-3 border bg-transparent text-base focus:outline-none"
-              style={{ borderColor: C.ink, color: C.ink }}>
+              className="w-full px-4 py-3 border bg-transparent focus:outline-none"
+              style={{ borderColor: C.ink, color: C.ink, fontSize: 16 }}>
               <option value="">— Select your church —</option>
               {CHURCHES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>

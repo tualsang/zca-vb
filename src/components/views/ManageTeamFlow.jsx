@@ -58,8 +58,8 @@ export function ManageTeamFlow({ isAdmin }) {
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               onKeyDown={(e) => { if (e.key === "Enter") loadTeam(); }}
               placeholder="e.g. FAIT-X7K2" autoCapitalize="characters"
-              className="flex-1 px-4 py-3 border bg-transparent text-lg tracking-widest focus:outline-none"
-              style={{ borderColor: C.ink, color: C.ink, fontFamily: "'Bebas Neue', sans-serif" }} />
+              className="flex-1 px-4 py-3 border bg-transparent tracking-widest focus:outline-none"
+              style={{ borderColor: C.ink, color: C.ink, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }} />
             <button onClick={loadTeam} disabled={loading}
               className="px-6 py-3 text-sm uppercase tracking-widest disabled:opacity-60 flex items-center justify-center gap-2"
               style={{ background: C.rust, color: C.cream, fontWeight: 700 }}>

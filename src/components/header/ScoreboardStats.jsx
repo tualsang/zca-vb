@@ -1,8 +1,8 @@
 import { C } from "../../lib/constants";
 
-export function ScoreboardStats({ stats, loading }) {
+export function ScoreboardStats({ stats, loading, className = "" }) {
   return (
-    <div className="flex gap-0 border" style={{ borderColor: C.ink, background: C.paper }}>
+    <div className={`flex gap-0 border ${className}`} style={{ borderColor: C.ink, background: C.paper }}>
       <Stat label="Players" value={loading ? "…" : stats.players} />
       <Stat label="Teams" value={loading ? "…" : stats.teams} divider />
       <Stat label="Free Agents" value={loading ? "…" : stats.freeAgents} divider />
@@ -12,7 +12,7 @@ export function ScoreboardStats({ stats, loading }) {
 
 function Stat({ label, value, divider }) {
   return (
-    <div className="text-center px-4 sm:px-5 py-2 sm:py-3 min-w-[80px] sm:min-w-[100px]"
+    <div className="flex-1 text-center px-4 sm:px-5 py-2 sm:py-3 min-w-[72px] sm:min-w-[100px]"
       style={{ borderLeft: divider ? `1px solid ${C.ink}` : "none" }}>
       <div style={{
         fontFamily: "'Bebas Neue', sans-serif",

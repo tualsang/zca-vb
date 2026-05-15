@@ -122,7 +122,9 @@ function CountdownDisplay({ label, sublabel, days, hours, minutes, seconds, urge
       <div className="flex items-center justify-center gap-2 mb-2" style={{ color }}>
         <Clock size={14} />
         <span className="text-[10px] sm:text-xs uppercase tracking-widest font-bold">
-          {label} — {sublabel}
+          <span className="block sm:inline">{label}</span>
+          <span className="hidden sm:inline"> — </span>
+          <span className="block sm:inline">{sublabel}</span>
         </span>
       </div>
       <div className="flex justify-center gap-3 sm:gap-5">
