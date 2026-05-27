@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  Trophy, Users, UserPlus, Loader2,
-  KeyRound, Flag, Lock, LogOut, Info,
+  Trophy, Users, UserPlus,
+  Flag, Lock, LogOut, Info,
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 import { C } from "./lib/constants";
@@ -9,12 +9,12 @@ import { teamHeadcount, generateEditCode } from "./lib/helpers";
 import { isRegistrationOpen } from "./lib/phase";
 import { useCountdown } from "./hooks/useCountdown";
 import { CountdownBanner } from "./components/header/CountdownBanner";
-import { ScoreboardStats } from "./components/header/ScoreboardStats";
+
 import { TabButton } from "./components/shared/TabButton";
 import { LoginModal } from "./components/auth/LoginModal";
 import { RegisterForm } from "./components/views/RegisterForm";
 import { ConfirmScreen } from "./components/views/ConfirmScreen";
-import { ManageTeamFlow } from "./components/views/ManageTeamFlow";
+
 import { RosterView } from "./components/views/RosterView";
 import { FreeAgentsView } from "./components/views/FreeAgentsView";
 import { InfoView } from "./components/views/InfoView";
@@ -136,15 +136,15 @@ export default function App() {
             fontFamily: "'Newsreader', serif", color: C.inkSoft,
             fontSize: "clamp(14px, 4vw, 17px)",
           }}>
-            Captains: Register your roster below.<br />
-            Others: Register as Free Agents
+            Captains register your team to{" "}
+            <a href="tel:7042016580" style={{ color: C.rust }}>704 201 6580</a>.
+            <br />
+            If you don't have a team but want to play as a free agent, please register below.
           </p>
 
           <CountdownBanner countdown={countdown} isAdmin={isAdmin} />
 
-          <div className="mt-4 sm:mt-5 flex justify-center">
-            <ScoreboardStats stats={stats} loading={loading} className="w-full sm:w-auto" />
-          </div>
+
 
           <nav className="mt-5 sm:mt-6">
             {/* Mobile: 2-row grid. Desktop: single row flex */}
@@ -152,11 +152,8 @@ export default function App() {
               <TabButton active={tab === "register"} onClick={() => switchTab("register")} primary fullWidth>
                 <UserPlus size={14} /> Register
               </TabButton>
-              <TabButton active={tab === "manage"} onClick={() => switchTab("manage")} fullWidth>
-                <KeyRound size={14} /> Manage
-              </TabButton>
               <TabButton active={tab === "roster"} onClick={() => switchTab("roster")} fullWidth>
-                <Users size={14} /> Roster <span className="opacity-70">({stats.teamPlayers})</span>
+                <Users size={14} /> Team List <span className="opacity-70">({stats.teams})</span>
               </TabButton>
               <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")} fullWidth>
                 <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
@@ -169,11 +166,8 @@ export default function App() {
               <TabButton active={tab === "register"} onClick={() => switchTab("register")} primary>
                 <UserPlus size={14} /> Register
               </TabButton>
-              <TabButton active={tab === "manage"} onClick={() => switchTab("manage")}>
-                <KeyRound size={14} /> Manage My Team
-              </TabButton>
               <TabButton active={tab === "roster"} onClick={() => switchTab("roster")}>
-                <Users size={14} /> Roster <span className="opacity-70">({stats.teamPlayers})</span>
+                <Users size={14} /> Team List <span className="opacity-70">({stats.teams})</span>
               </TabButton>
               <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")}>
                 <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
@@ -190,16 +184,15 @@ export default function App() {
         {tab === "register" && (
           canShowRegisterForm ? (
             <RegisterForm onSubmit={addRegistration} registrations={registrations}
-              onSwitchToManage={() => switchTab("manage")} isAdmin={isAdmin}
+              isAdmin={isAdmin}
               registrationOpenForPublic={registrationOpenForPublic} />
           ) : (
             <RegistrationClosedView
               phase={phase}
-              onSwitchToRoster={() => switchTab("roster")}
-              onSwitchToManage={() => switchTab("manage")} />
+              onSwitchToRoster={() => switchTab("roster")} />
           )
         )}
-        {tab === "manage" && <ManageTeamFlow isAdmin={isAdmin} />}
+
         {tab === "confirm" && (
           <ConfirmScreen
             entry={justSubmitted}

@@ -121,7 +121,7 @@ When a team is created, `generateEditCode(churchName)` produces a code in the fo
 - **Prefix** (`XXXX`): first 4 uppercase letters of the church name, non-letters stripped, padded with `X` if too short. `splitChurch()` is used first to strip the location suffix.
 - **Suffix** (`YYYY`): 4 random chars from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` — deliberately omits `I`, `O`, `0`, `1` to prevent transcription errors.
 
-Examples: `Faith Assembly Church - Arizona` → `FAIT-X7K2`. `Others` → `OTHE-...`.
+Examples: `Faith Assembly Church - Arizona` → `FAIT-X7K2`. `Free Agents` → `OTHE-...`.
 
 The captain sees this code on `ConfirmScreen` and enters it in `ManageTeamFlow` to edit their roster. Free agents do not get codes.
 
@@ -250,7 +250,7 @@ Fonts (loaded via `index.html`):
 - **One source of truth for registrations.** `App.jsx` owns the array; child views receive it via props rather than each fetching their own.
 - **Side effects gated by Realtime + manual reload.** Don't add additional fetch points; let the channel handle freshness.
 - **All times in Eastern.** Event dates in `constants.js` are stored as UTC `Date` objects with comments showing their EDT equivalent. Any new time logic must respect this.
-- **`Others` is a real church option.** The CHURCHES list ends with `"Others"` to capture anyone not on the curated list. Don't filter it out.
+- **`Free Agents` is a real church option.** The CHURCHES list ends with `"Free Agents"` to capture anyone not on the curated list. Don't filter it out.
 - **README says CHURCHES lives in `App.jsx` — it doesn't.** It's in `lib/constants.js`. Fix the README on next pass.
 
 ---

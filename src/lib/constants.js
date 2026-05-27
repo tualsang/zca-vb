@@ -12,7 +12,7 @@ export const CHURCHES = [
   "Zomi Christian Church - Columbus, OH",
   "Zomi Christian Church - Nashville, TN",
   "Full Life - Tulsa, OK",
-  "Others",
+  "Free Agents",
 ];
 
 // ─── Key dates ────────────────────────────────────────────────────────────
