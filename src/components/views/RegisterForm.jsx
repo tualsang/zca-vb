@@ -102,8 +102,8 @@ export function RegisterForm({ onSubmit, isAdmin, registrationOpenForPublic }) {
           </FormBlock>
         )}
 
-        {church && (
-          <div className="mt-8 pt-6 border-t" style={{ borderColor: C.line }}>
+        {church && division && (
+          <div className="mt-8">
             {error && (
               <div className="mb-4 px-4 py-3 text-sm"
                 style={{ background: "#FBE3DB", color: C.rustDark, border: `1px solid ${C.rust}` }}>

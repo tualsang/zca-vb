@@ -43,19 +43,13 @@ export function InfoView() {
 
         <Section title="Tournament Format">
           <p className="mb-3">
-            <strong>Full round robin</strong> [4-5 Teams]. Everyone plays everyone. Top 2 plays a championship match.
-          </p>
-          <p>
-            <strong>Pool play → single-elimination bracket</strong> [6+ Teams]. Split teams into 2 pools,
-            round-robin within the pool, then top 2 from each pool advance to a 4-team bracket.
+            <strong>TDB</strong>
           </p>
         </Section>
 
         <Section title="Scoring">
           <ul className="space-y-2">
-            <li><strong>Pool play:</strong> Rally Scoring: 2 sets to 21.</li>
-            <li><strong>Bracket quarters / semis:</strong> Best 2-of-3 to 21, third set to 15.</li>
-            <li><strong>Championship:</strong> Best 2-of-3 to 25, third set to 15.</li>
+            <li><strong>TDB</strong></li>
           </ul>
         </Section>
 
