@@ -184,6 +184,7 @@ function TeamCard({ team, isAdmin, onRemove }) {
       <h3 style={{
         fontFamily: "'Bebas Neue', sans-serif",
         fontSize: "clamp(22px, 6vw, 28px)", lineHeight: 1, color: C.ink,
+        letterSpacing: "0.04em",
       }}>
         {churchShort}
       </h3>
