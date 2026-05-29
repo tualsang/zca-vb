@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Check } from "lucide-react";
 import { C } from "../../lib/constants";
 import { LoadingState, EmptyState } from "../shared/Status";
 import { useMatches } from "../../hooks/useMatches";
@@ -151,8 +151,10 @@ export function ScheduleView({ isAdmin }) {
         });
     };
 
-    const shiftTime = (m, delta) =>
-        updateMatch(m.id, { start_minute: Math.max(0, Math.min(1439, m.start_minute + delta)) });
+    const shiftSlot = (games, delta) =>
+        games.forEach((g) =>
+            updateMatch(g.id, { start_minute: Math.max(0, Math.min(1439, g.start_minute + delta)) })
+        );
 
     const groups = useMemo(() => {
         const by = new Map();
@@ -188,8 +190,20 @@ export function ScheduleView({ isAdmin }) {
                         if (shown.length === 0) return null;
                         return (
                             <section key={slot}>
-                                <div className="text-[11px] uppercase tracking-[0.25em] mb-3 font-bold" style={{ color: C.inkSoft }}>
-                                    {slotLabel(games[0])}
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <span className="text-[11px] uppercase tracking-[0.22em] font-bold" style={{ color: C.inkSoft }}>
+                                        {slotLabel(games[0])} — {fmtTime(games[0].start_minute)}
+                                    </span>
+                                    {isAdmin && (
+                                        <div className="flex items-center gap-1.5">
+                                            <button onClick={() => shiftSlot(games, -15)} className="p-1 border transition-transform active:scale-90 active:opacity-60" style={{ borderColor: C.ink, color: C.ink }} aria-label="15 minutes earlier">
+                                                <Minus size={13} />
+                                            </button>
+                                            <button onClick={() => shiftSlot(games, 15)} className="p-1 border transition-transform active:scale-90 active:opacity-60" style={{ borderColor: C.ink, color: C.ink }} aria-label="15 minutes later">
+                                                <Plus size={13} />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="grid md:grid-cols-2 gap-4">
                                     {shown.map((m) => (
@@ -202,7 +216,6 @@ export function ScheduleView({ isAdmin }) {
                                             onName={setName}
                                             onScore={setScore}
                                             onCommit={commit}
-                                            onShift={shiftTime}
                                         />
                                     ))}
                                 </div>
@@ -246,7 +259,8 @@ function FilterBar({ filter, setFilter }) {
     );
 }
 
-function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit, onShift }) {
+function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit }) {
+    const [saved, setSaved] = useState(false);
     const teamA = isAdmin ? draft.team_a : m.team_a;
     const teamB = isAdmin ? draft.team_b : m.team_b;
     const r = resultOf(pairs);
@@ -255,6 +269,12 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit, onShift
     const played = pairs.length > 0;
     const aWin = r.wonA > r.wonB;
     const bWin = r.wonB > r.wonA;
+
+    const handleSubmit = () => {
+        onCommit(m);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 1500);
+    };
 
     return (
         <article className="border p-4 sm:p-5" style={{ borderColor: C.ink, background: C.paper }}>
@@ -273,7 +293,6 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit, onShift
                     <input
                         value={draft.team_a}
                         onChange={(e) => onName(m, "team_a", e.target.value)}
-                        onBlur={() => onCommit(m)}
                         placeholder="Team A"
                         className="flex-1 bg-transparent focus:outline-none border-b"
                         style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: C.ink, borderColor: C.line }}
@@ -293,7 +312,6 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit, onShift
                     <input
                         value={draft.team_b}
                         onChange={(e) => onName(m, "team_b", e.target.value)}
-                        onBlur={() => onCommit(m)}
                         placeholder="Team B"
                         className="flex-1 bg-transparent focus:outline-none border-b"
                         style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: C.ink, borderColor: C.line }}
@@ -314,31 +332,14 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit, onShift
                 </div>
             )}
 
-            <div className="mt-3 pt-3 flex items-center gap-2" style={{ borderTop: `1px dashed ${C.line}` }}>
-                {isAdmin && (
-                    <button onClick={() => onShift(m, -15)} className="p-1 border" style={{ borderColor: C.ink, color: C.ink }} aria-label="15 minutes earlier">
-                        <Minus size={14} />
-                    </button>
-                )}
-                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: C.ink, letterSpacing: "0.04em" }}>
-                    {fmtTime(m.start_minute)}
-                </span>
-                {isAdmin && (
-                    <button onClick={() => onShift(m, 15)} className="p-1 border" style={{ borderColor: C.ink, color: C.ink }} aria-label="15 minutes later">
-                        <Plus size={14} />
-                    </button>
-                )}
-            </div>
-
             {isAdmin && (
-                <div className="mt-3 space-y-2">
+                <div className="mt-3 pt-3 space-y-2" style={{ borderTop: `1px dashed ${C.line}` }}>
                     {[0, 1, 2].map((i) => (
                         <div key={i} className="flex items-center gap-2 text-[11px] uppercase tracking-wider" style={{ color: C.inkSoft }}>
                             <span className="w-12">Set {i + 1}</span>
                             <input
                                 value={draft.sets[i][0]}
                                 onChange={(e) => onScore(m, i, 0, e.target.value)}
-                                onBlur={() => onCommit(m)}
                                 inputMode="numeric"
                                 className="w-12 px-2 py-1.5 border bg-white text-center focus:outline-none"
                                 style={{ borderColor: C.ink, color: C.ink, fontSize: 13 }}
@@ -347,13 +348,19 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit, onShift
                             <input
                                 value={draft.sets[i][1]}
                                 onChange={(e) => onScore(m, i, 1, e.target.value)}
-                                onBlur={() => onCommit(m)}
                                 inputMode="numeric"
                                 className="w-12 px-2 py-1.5 border bg-white text-center focus:outline-none"
                                 style={{ borderColor: C.ink, color: C.ink, fontSize: 13 }}
                             />
                         </div>
                     ))}
+                    <button
+                        onClick={handleSubmit}
+                        className="mt-2 w-full inline-flex items-center justify-center gap-2 py-2.5 text-xs uppercase tracking-widest transition-transform active:scale-[0.98]"
+                        style={{ background: saved ? C.ok : C.ink, color: C.cream, fontWeight: 700, letterSpacing: "0.15em" }}
+                    >
+                        {saved ? <><Check size={14} /> Saved</> : "Submit"}
+                    </button>
                 </div>
             )}
         </article>
@@ -373,20 +380,20 @@ function StandingsTable({ title, rows }) {
                 <EmptyState message="No completed matches yet." />
             ) : (
                 <div className="border" style={{ borderColor: C.ink }}>
-                    <div className="grid items-center text-[10px] sm:text-[11px] uppercase tracking-widest font-bold"
-                        style={{ gridTemplateColumns: "1.6rem 1fr 1.8rem 1.8rem 3rem 2.6rem 3rem", background: C.ink, color: C.cream }}>
+                    <div className="grid items-center text-[10px] sm:text-[11px] uppercase tracking-wider font-bold"
+                        style={{ gridTemplateColumns: "1.5rem 1fr 1.6rem 1.6rem 1.6rem 2.8rem 3.4rem", background: C.ink, color: C.cream }}>
                         <Cell>#</Cell>
                         <Cell left>Team</Cell>
                         <Cell>P</Cell>
                         <Cell>W</Cell>
+                        <Cell>L</Cell>
                         <Cell>Sets</Cell>
-                        <Cell>Pts</Cell>
-                        <Cell>Ratio</Cell>
+                        <Cell>PTS Ratio</Cell>
                     </div>
                     {rows.map((t, i) => (
                         <div key={t.name} className="grid items-center text-xs sm:text-sm"
                             style={{
-                                gridTemplateColumns: "1.6rem 1fr 1.8rem 1.8rem 3rem 2.6rem 3rem",
+                                gridTemplateColumns: "1.5rem 1fr 1.6rem 1.6rem 1.6rem 2.8rem 3.4rem",
                                 background: i % 2 ? C.cream : C.paper,
                                 color: C.ink,
                                 borderTop: `1px solid ${C.line}`,
@@ -397,8 +404,8 @@ function StandingsTable({ title, rows }) {
                             </Cell>
                             <Cell>{t.p}</Cell>
                             <Cell>{t.w}</Cell>
+                            <Cell>{t.l}</Cell>
                             <Cell>{t.sw}–{t.sl}</Cell>
-                            <Cell>{t.pf}</Cell>
                             <Cell>{ratioStr(t.pf, t.pa)}</Cell>
                         </div>
                     ))}

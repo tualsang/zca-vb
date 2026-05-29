@@ -33,9 +33,15 @@ export function useMatches() {
     }, [load]);
 
     const updateMatch = useCallback(async (id, patch) => {
+        // Optimistic: apply locally first so the admin sees it immediately,
+        // regardless of realtime latency or whether replication is enabled.
+        setMatches((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
         const { error } = await supabase.from("matches").update(patch).eq("id", id);
-        if (error) alert("Could not save: " + error.message);
-    }, []);
+        if (error) {
+            alert("Could not save: " + error.message);
+            load(); // revert to the server's truth on failure
+        }
+    }, [load]);
 
     return { matches, loading, updateMatch };
 }
