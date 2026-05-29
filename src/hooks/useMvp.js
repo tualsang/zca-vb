@@ -32,21 +32,35 @@ export function useMvp() {
     }, [load]);
 
     // row: { player_name, team, voter_token, status }
+    // Optimistic: show the vote immediately, then let the insert + realtime
+    // reconcile. This is what makes a tap update the poll without a reload.
     const castVote = useCallback(async (row) => {
+        const optimistic = {
+            id: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            created_at: new Date().toISOString(),
+            ...row,
+        };
+        setVotes((prev) => [...prev, optimistic]);
         const { error } = await supabase.from("mvp_votes").insert([row]);
-        if (error) { alert("Could not submit your vote: " + error.message); return false; }
+        if (error) {
+            alert("Could not submit your vote: " + error.message);
+            setVotes((prev) => prev.filter((v) => v.id !== optimistic.id)); // revert
+            return false;
+        }
         return true;
     }, []);
 
     const approveVote = useCallback(async (id) => {
+        setVotes((prev) => prev.map((v) => (v.id === id ? { ...v, status: "approved" } : v)));
         const { error } = await supabase.from("mvp_votes").update({ status: "approved" }).eq("id", id);
-        if (error) alert("Could not approve: " + error.message);
-    }, []);
+        if (error) { alert("Could not approve: " + error.message); load(); }
+    }, [load]);
 
     const deleteVote = useCallback(async (id) => {
+        setVotes((prev) => prev.filter((v) => v.id !== id));
         const { error } = await supabase.from("mvp_votes").delete().eq("id", id);
-        if (error) alert("Could not remove: " + error.message);
-    }, []);
+        if (error) { alert("Could not remove: " + error.message); load(); }
+    }, [load]);
 
     return { votes, loading, castVote, approveVote, deleteVote };
 }

@@ -1,89 +1,82 @@
 # Volleyball Tournament
 
-A registration and tournament site for the **ZCA Conference 2026 Volleyball Tournament** — a one-day, multi-church event held **July 10, 2026** in Halethorpe, Maryland.
+A registration and game-day site for the **ZCA Conference 2026 Volleyball Tournament** — a one-day, multi-church event held **July 10, 2026** in Ellicott City, Maryland.
 
-The site does three things across the lifecycle of the tournament:
+One React app carries the event across its whole lifecycle:
 
-1. Captures team and free-agent registrations leading up to the deadline
-2. Runs the tournament on game day — brackets, schedules, and live scores
-3. Settles into a recap view once the event ends
+1. Captures free-agent registrations leading up to the deadline.
+2. Runs the tournament on game day — schedule, live scores, and standings.
+3. Opens MVP voting and settles into a recap once the event ends.
 
-It's built as a single React app with a real-time backend: when a team registers, everyone currently on the site sees them appear without refreshing.
-
----
-
-## How registration works
-
-There are two ways to sign up.
-
-**Team captains** register their full roster in one pass — they pick their church, choose a division (Men's or Women's), enter their own info as captain, then add each of their players. After submitting, the captain is shown a unique **edit code**, something like `FAIT-X7K2`. That code is the key to the *Manage Team* tab: the captain can come back any time before the deadline to add players, remove no-shows, or fix typos — without needing to contact the organizer.
-
-**Free agents** are players who don't have a team. They sign up individually under their church and division, and they show up in the Free Agents tab where everyone can see them. After registration closes, free agents are grouped into ad-hoc squads so nobody who wants to play gets left out.
-
-The church list is a fixed dropdown with an "Others" option for anyone outside the ten participating churches.
+It has a real-time backend: when a score or vote changes, everyone on the site sees it update without refreshing.
 
 ---
 
-## The countdown and the four phases
+## How sign-up works
 
-Every page has a live banner showing where we are in the tournament lifecycle. The site behaves differently in each phase — all times Eastern.
+There are two kinds of entries, but only one public sign-up path.
 
-| Phase | When | What the site shows |
+**Teams are added by the organizer.** Captains contact the organizer by phone (the number is in the header) and the organizer adds the team from the **Team List** tab. There's no public team form, no roster to fill in, and no edit code to keep track of — a team is just its church and division.
+
+**Free agents sign themselves up.** A player without a team picks their church and division and leaves a name and phone number. They appear in the **Free Agents** tab, and after registration closes they're grouped into ad-hoc squads so everyone who wants to play gets a spot.
+
+The church list is a fixed dropdown that ends with a **Free Agents** option for anyone not tied to one of the participating churches.
+
+---
+
+## The four phases
+
+The site behaves differently depending on where we are in the tournament's life. The transitions happen automatically from the clock — nobody flips a switch. All times Eastern.
+
+| Phase | When | What the site does |
 |---|---|---|
-| **Pre-registration** | Until June 14, 11:59 PM ET | Countdown to the deadline; registration form open to everyone |
-| **Pre-event** | June 14 → July 10 | Countdown to game day; public signup closed (admin can still add late entries) |
-| **Live** | July 10, 9 AM – 5 PM ET | Game-day banner; signup is over; brackets, schedule, and live scores take over |
-| **Complete** | After 5 PM, July 10 | Countdown is gone; final standings and a thank-you recap |
-
-The transitions happen automatically based on the clock — no one has to flip a switch.
+| **Pre-registration** | Until June 14, 11:59 PM | Counts down to the deadline. Free-agent sign-up is open. Lands on the sign-up form. |
+| **Pre-event** | June 14 → July 10, 9 AM | Counts down to game day. Sign-up is closed for the public; the Register tab is gone. Lands on the Team List. |
+| **Live** | July 10, 9 AM – 5 PM | The schedule, live scores, and standings take over. No more countdown. Lands on the Schedule. MVP voting opens at noon. |
+| **Complete** | After 5 PM, July 10 | Final standings remain, and the header reads "Go Vote for MVP!" Lands on MVP voting. |
 
 ---
 
 ## What visitors see
 
-Anyone landing on the site, without logging in, can:
+Without logging in, anyone can:
 
-- See the **Roster** — every registered team, grouped by church and division
-- See the **Free Agents** tab — every solo player and their division
-- See the **Scoreboard** at the top — live counts of total players, teams, and free agents
-- Read the **Info** tab — format, date, address, time, and house rules
-- Once it's game day: follow the schedule, live brackets, and current scores
+- Browse the **Team List** — every team, grouped by division.
+- See the **Free Agents** tab (while sign-up is open).
+- Follow the **Schedule** on and after game day — every game by round and court, with live best-of-three scores and a **standings table** (matches played, wins, losses, set record, and points ratio per division).
+- Vote in the **MVP** poll once it opens at noon, and watch the percentages update live.
+- Read the **Info** tab — format, date, address, and time.
 
-The page updates in real time. If you're watching the Roster tab and a new team registers from somewhere else, they appear instantly.
-
----
-
-## What the admin sees
-
-There's a small "Admin" link in the footer. After signing in, the organizer gets:
-
-- An "Admin" badge in the header so they know they're logged in
-- The ability to **register teams any time**, including after the public deadline
-- The ability to **remove** duplicate or test registrations
-- Access to the **Admin Dashboard** (game-day controls), where they:
-  - Pick the format per division once registration closes
-  - Seed teams into pools (when applicable)
-  - Generate the full schedule
-  - Enter scores courtside from their phone
-
-The Admin Dashboard is designed mobile-first, because the organizer will be using it one-handed on the sidelines, not at a desk.
+Everything updates in real time.
 
 ---
 
-## Tournament formats
+## Game day: the schedule
 
-Once registration closes, the admin picks the format for each division based on how many teams signed up. Two formats are supported:
+Two courts run in parallel — **Court A** for the Men's division, **Court B** for the Women's. Each division has four teams that play a full round robin (everyone plays everyone), followed by a third-place game and a championship.
 
-**Round Robin** — for divisions with **4–5 teams**. Every team plays every other team. The top two in the standings (by wins, then head-to-head, then point differential) meet in a championship match.
+Each game is **best of three**. The standings table ranks teams by matches won, then set ratio, then points ratio, and it updates automatically as scores come in. The four finalists for the playoff games are set from the standings.
 
-**Pool Play + Bracket** — for divisions with **6 or more teams**. Teams are split into two pools and play a round-robin within their pool. The top two from each pool advance to a 4-team single-elimination bracket: Pool A's #1 plays Pool B's #2 in one semifinal, and Pool B's #1 plays Pool A's #2 in the other. Winners meet in the final.
+## The MVP vote
 
-The two divisions (Men's and Women's) can run different formats — they're independent.
+From noon on game day, visitors can vote for the tournament's most valuable player. If their pick is already on the board, they tap to vote and the percentages move instantly. If their player isn't listed, they write in a name and pick a team — that submission is reviewed by an organizer before it joins the poll. Results are visible to everyone the whole time.
+
+---
+
+## What the organizer (admin) does
+
+A small **Admin** link in the footer signs the organizer in. From there they can:
+
+- **Add and remove teams** from the Team List, at any time.
+- **Run the schedule** from their phone, courtside: shift a round's start time in 15-minute steps, set team names, and enter set scores. The standings recompute the moment a game is submitted.
+- **Moderate the MVP vote** — approve or reject write-ins, add votes directly (for in-person or paper votes), and nudge any candidate's count up or down.
+
+The admin keeps full access to every tab in every phase, so the site can be managed before, during, and after the event.
 
 ---
 
 ## Tech
 
-React + Vite + Tailwind on the frontend, Supabase (Postgres + Auth + Realtime) on the backend, deployed on Vercel. Kept deliberately small for a one-day event — no router, no global state library, no TypeScript. The whole thing is meant to be readable end-to-end in an afternoon.
+React + Vite + Tailwind on the frontend, Supabase (Postgres + Auth + Realtime) on the backend, deployed on Vercel. Deliberately small for a one-day event — no router, no global state library, no TypeScript. Three Postgres tables (`registrations`, `matches`, `mvp_votes`), each with row-level security and realtime replication.
 
-For developer documentation — architecture, conventions, database schema, and design tokens — see [CLAUDE.md](./CLAUDE.md).
+For developer documentation — architecture, conventions, the phase map, database schema, and design tokens — see [CLAUDE.md](./CLAUDE.md).

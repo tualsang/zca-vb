@@ -6,29 +6,29 @@ Context document for AI coding assistants (Claude Code, Cursor, etc.) and humans
 
 ## What this project is
 
-A single-day, multi-church volleyball tournament site for the **ZCA Conference 2026**. It serves three distinct moments:
+A single-day, multi-church volleyball tournament site for the **ZCA Conference 2026**. One React app carries the event across its whole lifecycle, switching behavior automatically based on the clock:
 
-1. **Before the tournament** — generate excitement, capture free-agent registrations, show a live countdown to the registration deadline.
-2. **Tournament day** — switch to a celebratory "live" banner; signup is closed.
-3. **After the tournament** — wind-down state with a thank-you message; countdown is gone.
+1. **Before** — capture free-agent registrations, count down to the deadline.
+2. **Game day** — run the tournament: schedule, live scores, standings, and an MVP vote.
+3. **After** — push everyone to MVP voting and show final standings.
 
-The app is **phase-driven**: a single `phase` value (computed from the current time vs. fixed event dates) governs which views are shown, whether public registration is open, and what the header looks like.
+The app is **phase-driven**: a single `phase` value (computed from the current time vs. fixed dates) decides which tabs exist, where a visitor lands, and how the header looks.
 
 **Tournament facts:**
 - **Date:** July 10, 2026, 9:00 AM – 5:00 PM EDT
 - **Location:** 8700 Old Annapolis Road, Ellicott City, MD 21043
 - **Registration deadline:** June 14, 2026, 11:59 PM EDT
-- **Divisions:** Men's and Women's
-- **All times in Eastern.**
+- **MVP voting opens:** July 10, 2026, 12:00 PM EDT
+- **Divisions:** Men's and Women's. **All times Eastern.**
 
-### Registration model (IMPORTANT — this changed)
+### Registration model
 
-There are two row kinds, but only one public path:
+Teams and free agents are handled differently:
 
-- **Teams are admin-only.** Captains do **not** self-register. They phone the organizer (number shown in the header), and the organizer adds the team from the **Team List** tab while signed in as admin. There is **no player roster** and **no edit code** — a team row is just a church + division + optional captain name + optional phone.
-- **Free agents are the only public signup.** A solo player picks their church and division, enters name + phone, and is listed for auto-grouping into ad-hoc squads.
+- **Teams are admin-only.** Captains phone the organizer (number in the header); the organizer adds the team from the **Team List** tab while signed in. There is **no public team signup, no player roster, and no edit code** — a team row is a church + division + optional captain name + optional phone.
+- **Free agents are the only public signup.** A solo player picks church + division, enters name + phone, and is listed for ad-hoc grouping.
 
-> Historical note: earlier versions let captains self-register a full roster and receive an `XXXX-YYYY` edit code to manage it later. That flow (and the `players` roster, `edit_code`, and the *Manage Team* tab) has been **removed**. See "Removed / deprecated" below.
+> Earlier versions let captains self-register a roster and manage it with an `XXXX-YYYY` edit code. That flow — plus the `players` roster, `edit_code` column, the *Manage Team* tab, and the *Scoreboard* counter strip — has been **removed**. Don't reintroduce them.
 
 ---
 
@@ -37,13 +37,13 @@ There are two row kinds, but only one public path:
 | Layer | Choice |
 |---|---|
 | Frontend | React 18 + Vite |
-| Styling | Tailwind CSS, plus a centralized design-token object (`C` in `src/lib/constants.js`) |
+| Styling | Tailwind CSS + a centralized design-token object (`C` in `src/lib/constants.js`) |
 | Icons | `lucide-react` |
 | Backend | Supabase (Postgres + Auth + Realtime) |
 | Hosting | Vercel (auto-deploy on push to `main`) |
 | Env | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` in `.env.local` |
 
-No router. Single-page app using local `tab` state for navigation. No global state library — `App.jsx` holds the canonical state and passes props down.
+No router. Single-page app using local `tab` state. No global state library, no TypeScript, no PropTypes.
 
 ---
 
@@ -51,7 +51,7 @@ No router. Single-page app using local `tab` state for navigation. No global sta
 
 ```
 src/
-├── App.jsx                 ← Orchestrator. Owns tab, session, registrations, countdown.
+├── App.jsx                 ← Orchestrator. Owns tab, session, registrations, countdown, phase gating.
 ├── main.jsx                ← React entry point (StrictMode root).
 ├── index.css               ← Tailwind directives + globals.
 │
@@ -59,243 +59,178 @@ src/
 │   ├── auth/
 │   │   └── LoginModal.jsx          Supabase email/password modal for admin sign-in.
 │   ├── header/
-│   │   └── CountdownBanner.jsx     Renders the live phase-aware countdown.
+│   │   └── CountdownBanner.jsx     Phase-aware countdown (rendered only in the two pre-event phases).
 │   ├── inputs/
-│   │   ├── NameInput.jsx           Reusable text input. Uses sanitizeNameInput.
-│   │   └── PhoneInput.jsx          Phone input. Uses sanitizePhoneInput + formatPhone.
+│   │   ├── NameInput.jsx           Text input; uses sanitizeNameInput.
+│   │   └── PhoneInput.jsx          Phone input; uses sanitizePhoneInput + formatPhone.
 │   ├── shared/
 │   │   ├── ChoiceCard.jsx          Selectable card primitive.
 │   │   ├── FormBlock.jsx           Labeled form section wrapper.
-│   │   ├── Status.jsx              LoadingState / EmptyState helpers.
+│   │   ├── Status.jsx              LoadingState / EmptyState.
 │   │   └── TabButton.jsx           Main nav tab button.
 │   └── views/
-│       ├── RegisterForm.jsx        Free-agent signup form (free agents only).
+│       ├── RegisterForm.jsx        Free-agent signup (free agents only).
 │       ├── ConfirmScreen.jsx       Post-submit "You're In" screen for free agents.
 │       ├── RosterView.jsx          Public team list + admin "Add Team" panel.
 │       ├── FreeAgentsView.jsx      Public list of free agents.
+│       ├── ScheduleView.jsx        Schedule, live scores, admin scoring, standings table.
+│       ├── VoteView.jsx            MVP poll, tap-to-vote, write-ins, admin moderation.
 │       ├── InfoView.jsx            Static info: format, date, address, time.
-│       └── RegistrationClosedView.jsx   Shown when phase has moved past signup.
+│       └── RegistrationClosedView.jsx   Fallback if the register tab is reached when closed.
 │
 ├── hooks/
-│   └── useCountdown.js     Ticks every second; returns { phase, target, ...timeFields }.
+│   ├── useCountdown.js     Ticks every second; returns { phase, target, now, ...timeFields }.
+│   ├── useMatches.js       Loads matches + Realtime; optimistic updateMatch.
+│   └── useMvp.js           Loads MVP votes + Realtime; optimistic castVote / approveVote / deleteVote.
 │
 └── lib/
-    ├── constants.js        CHURCHES list, event dates, color tokens (C).
-    ├── helpers.js          Pure utilities (see "Helpers" below).
+    ├── constants.js        CHURCHES, event dates, MVP_VOTE_OPEN, color tokens (C).
+    ├── helpers.js          Pure utilities (see "Helpers").
     ├── phase.js            getPhase(now) + isRegistrationOpen / isEventLive / isEventComplete.
     └── supabase.js         Configured Supabase client (singleton).
 ```
 
-### Removed / deprecated
-
-These existed in earlier versions and should **not** be reintroduced:
-
-- `components/views/ManageTeamFlow.jsx` — captain edit-code roster editor. **Delete.** Not imported anywhere in `App.jsx`; it was the last consumer of `edit_code` and `team.players`.
-- `components/header/ScoreboardStats.jsx` — Players / Teams / Free agents counter strip. **Orphaned.** Not imported anywhere; the header shows counts inline on the tab buttons instead. Safe to delete.
-- `players` jsonb column and `edit_code` column — dropped from the schema.
-- `generateEditCode()` in `helpers.js` — now dead. The `kind === "team"` edit-code branch in `App.jsx`'s `addRegistration` is also dead (free agents always produce a `null` code, so it never inserts the dropped column). Both can be stripped on the next cleanup pass.
+### Removed — do not reintroduce
+`components/views/ManageTeamFlow.jsx`, `components/header/ScoreboardStats.jsx`, the `players` and `edit_code` columns, and `generateEditCode()` in `helpers.js`.
 
 ---
 
-## Core concepts
+## Phases and the phase-driven UI
 
-### Phases
+`getPhase(now)` returns `{ phase, target }`:
 
-`getPhase(now)` returns `{ phase, target }` where `target` is the next deadline (or `null` when complete):
+| Phase | When | `target` |
+|---|---|---|
+| `pre_registration` | now < June 14, 2026 11:59 PM EDT | `REGISTRATION_DEADLINE` |
+| `pre_event` | deadline passed, before game day | `EVENT_START` |
+| `live` | July 10, 9 AM – 5 PM EDT | `EVENT_END` |
+| `complete` | after 5 PM EDT on game day | `null` |
 
-| Phase | When | `target` | Public can register? |
-|---|---|---|---|
-| `pre_registration` | now < June 14, 2026 11:59 PM EDT | `REGISTRATION_DEADLINE` | ✅ Yes (free agents) |
-| `pre_event` | deadline passed, event not started | `EVENT_START` | ❌ No (admin can) |
-| `live` | July 10, 2026, 9 AM – 5 PM EDT | `EVENT_END` | ❌ No |
-| `complete` | after 5 PM EDT on tournament day | `null` | ❌ No |
+`useCountdown()` also returns `now` (the `Date` it's using, override-aware) so callers can gate on specific clock times — that's how MVP voting opens at noon during the `live` phase.
 
-Convenience predicates from `phase.js`: `isRegistrationOpen`, `isEventLive`, `isEventComplete`.
+### Tab visibility, landing, and header by phase
 
-Admins (signed-in users) **bypass the phase gate** for registration — `canShowRegisterForm = registrationOpenForPublic || isAdmin` in `App.jsx`. This lets the organizer add late free agents from their phone.
+The public follows the flow below; **the admin keeps every management tab open at all times** (each gate is `… || isAdmin`). `MVP_VOTE_OPEN` is noon on game day.
+
+| | pre_registration | pre_event | live | complete |
+|---|---|---|---|---|
+| **Register** | yes | admin only | admin only | admin only |
+| **Team List** | yes | yes | yes | yes |
+| **Free Agents** | yes | admin only | admin only | admin only |
+| **Schedule** | admin only | yes | yes | yes |
+| **MVP Vote** | — | — | from **noon** | yes |
+| **Info** | yes | yes | yes | yes |
+| **Default landing** | Register | Team List | Schedule | **MVP Vote** |
+| **Header** | full + countdown | full + countdown | full, **no banner** | full, **"Go Vote for MVP!"** |
+
+Mechanics in `App.jsx`:
+- Visibility flags: `showRegister = isPre || isAdmin`, `showRoster = true`, `showFreeAgents = isPre || isAdmin`, `showSchedule = !isPre || isAdmin`, `showVote = votingOpen || isAdmin` (where `votingOpen = countdown.now >= MVP_VOTE_OPEN`).
+- `defaultTabFor(phase)` returns the landing tab; a `prevPhase` ref re-lands the user whenever the phase rolls over (e.g. 9 AM arrives) — no reload needed.
+- A guard effect bounces off any now-hidden tab to the phase default.
+- The `CountdownBanner` renders only when `isPre || isPreEvent`. After the event, the header subhead becomes a clickable "Go Vote for MVP!" that jumps to the vote tab.
+- The header is always rendered (the live window is a full header minus the banner, not a hidden header).
 
 ### Registration kinds
-
-The `registrations` table has a `kind` discriminator: `"team"` or `"free_agent"`.
-
-- **Team rows** (admin-created): `church`, `division`, optional `captain_name`, optional `phone`.
-- **Free-agent rows** (public): `church`, `division`, `player_name`, optional `phone`.
-
-`teamHeadcount(team)` still exists in `helpers.js` and returns `(team.players?.length || 0) + 1`. With the roster gone this always returns `1`, so it is harmless but no longer meaningful — treat a team as a single unit.
+`registrations.kind` is `"team"` or `"free_agent"`. Team rows: `church`, `division`, optional `captain_name`, optional `phone`. Free-agent rows: `church`, `division`, `player_name`, optional `phone`.
 
 ### Admin mode
-
-A Supabase auth session = admin. There is no role table — presence of `session` is the entire check. Admin powers:
-
-- Register during any phase
-- Add team rows (RosterView "Add Team" panel)
-- Delete any registration (`removeRegistration`)
-- "Admin" badge in the header, "Sign Out" link in the footer
-
-At the DB level (see RLS below), team inserts, updates, and deletes are restricted to the `authenticated` role, so admin-only is enforced server-side, not just in the UI.
+A Supabase auth session = admin (no role table; presence of `session` is the whole check). Admin can register/add anytime, remove registrations, run the schedule (scores, times, team names), and moderate MVP votes. RLS enforces write access at the `authenticated` role, so admin-only is real at the DB layer, not just the UI.
 
 ---
 
 ## Helpers (`lib/helpers.js`)
-
-All pure functions, no side effects:
-
-| Function | Purpose |
-|---|---|
-| `splitChurch(full)` | Splits `"Name — Location"` or `"Name - Location"` into `{ name, location }`. Handles em-dash and hyphen with surrounding spaces. |
-| `sanitizePhoneInput(value)` | Digits only, max 10. |
-| `formatPhone(digits)` | Formats as `(XXX) XXX-XXXX`, handles partial input progressively. |
-| `sanitizeNameInput(value)` | Strips digits from name fields. |
-| `teamHeadcount(team)` | `(team.players?.length \|\| 0) + 1`. Always `1` now; vestigial. |
-| `generateEditCode(churchName)` | **Dead.** Roster/edit-code flow removed. Slated for deletion. |
-
-Phone is stored in its own `phone` column (text, formatted via `formatPhone`) on both free-agent and team rows.
+`splitChurch(full)` -> `{ name, location }` (splits on em-dash or hyphen). `sanitizePhoneInput` (digits, max 10). `formatPhone` (`(XXX) XXX-XXXX`). `sanitizeNameInput` (strips digits). `teamHeadcount` remains but is vestigial (always 1 now).
 
 ---
 
 ## Database (Supabase)
 
-Schema lives in `supabase-schema.sql`. Confirmed columns on `registrations`:
+Three tables. Each has its own `supabase-*.sql` file; run all three.
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid (default `gen_random_uuid()`) | Primary key |
-| `kind` | text | CHECK: `'team'` or `'free_agent'` |
-| `church` | text | Required |
-| `division` | text | CHECK: `'mens'` or `'womens'` |
-| `captain_name` | text | Optional, team rows |
-| `player_name` | text | Free-agent rows |
-| `phone` | text | Optional contact, admin-visible only |
-| `created_at` | timestamptz | Ordering in `loadRegistrations` |
+### `registrations` (`supabase-schema.sql`)
+`id`, `kind` (`team`/`free_agent`), `church`, `division` (`mens`/`womens`), `captain_name`, `player_name`, `phone`, `created_at`.
+**RLS:** public select; **anon insert only `free_agent`**; authenticated insert any; authenticated update/delete.
 
-**Dropped:** `players` (jsonb) and `edit_code` (text). See the migration block in `supabase-schema.sql`.
+### `matches` (`supabase-matches.sql`)
+`id`, `division` (`mens`/`womens`), `court` (`A`/`B`), `phase` (`round_robin`/`third_place`/`final`), `slot_index` (0–7), `start_minute` (minutes after midnight, EDT), `team_a`, `team_b` (text, nullable = TBD), `sets` (jsonb `[[a,b],...]`), `created_at`.
+**RLS:** public select; authenticated insert/update/delete.
+Seeded with the fixed 16-game fixture (placeholder `M1..M4`/`W1..W4`; playoff rows start TBD).
 
-### Row Level Security
-
-RLS is enabled. Production policies:
-
-- **Select:** anyone can read (public Roster / Free Agents tabs).
-- **Insert (anon):** public may insert **only** `kind = 'free_agent'` rows. A public team insert is rejected.
-- **Insert (authenticated):** admin may insert any row, including teams.
-- **Update (authenticated):** admin only.
-- **Delete (authenticated):** admin only.
-
-> The old "anyone can insert / anyone can delete" testing policies must be dropped before going live (see PART B of the schema). The new model relies on the anon-vs-authenticated split, so signing in is what unlocks team management.
+### `mvp_votes` (`supabase-mvp.sql`)
+`id`, `player_name`, `team`, `voter_token`, `status` (`approved`/`pending`), `created_at`.
+**RLS:** **anon selects only `approved`**, authenticated selects all; anon may insert `approved` or `pending`; authenticated insert/update/delete.
 
 ### Realtime
+Enable replication (Supabase -> Database -> Replication) on **all three** tables. Each is watched by a `postgres_changes` channel that reloads on change. The "lock it down" step (drop any testing-only public insert/delete policies) applies before going live.
 
-The `registrations` table must have replication enabled (Supabase → Database → Replication). `App.jsx` opens a `postgres_changes` channel on `*` events and reloads on any change. This is what makes the public roster update without refresh.
+---
+
+## The schedule (`ScheduleView.jsx` + `useMatches.js`)
+
+Court A is the Men's division, Court B the Women's. Four teams per division play a full round robin (6 games each), then a third-place game and a championship.
+
+- **Filter bar:** All / Men (Court A) / Women (Court B) / **Table** (standings).
+- **Time** lives on the round header — "Round 1 — 9:30 AM". Admin ±15-minute steppers shift **both courts in that round together**; rounds shift independently of each other.
+- **Scores** are best-of-3, **free entry** (no validation). A match is **Final** automatically once a side reaches 2 set wins, **Live** once any score is entered, otherwise **Upcoming** — status is derived, never stored.
+- **Admin editing:** team-name fields and three set-score rows per game, committed with a **Submit** button (button flashes "Saved"). The card's own score previews as you type; the standings table updates on Submit. Edits are optimistic via `updateMatch`, so they apply instantly and sync after.
+- **Standings (Table):** two tables, Men's on top. Columns: **P** (matches played), **W**, **L**, **Sets** (set-win–set-loss), **PTS Ratio** (points for / against). Ranked by wins -> set ratio -> point ratio. Only **decided round-robin** games count. Teams are grouped by name **trimmed and case-insensitive** (so `Bethel` = `bethel`).
+- **Playoffs** start as TBD; the admin types the finalists by hand (standings inform seeding — there is no auto-seed yet).
+
+---
+
+## MVP vote (`VoteView.jsx` + `useMvp.js`)
+
+Opens at noon on game day (`MVP_VOTE_OPEN`) and stays open afterward; admins see it any time. Results are public immediately as **percentages** (Player A 5 / Player B 5 -> 50% / 50%), each with a bar.
+
+- **Tap-to-vote** on a listed candidate inserts an **approved** vote — no review.
+- **Write-in** (player name + a team from the men's-team dropdown) inserts a **pending** vote; it appears only after an admin approves it. The team dropdown is the men's team names from `matches`, de-duplicated case-insensitively.
+- **Admin moderation:** a pending queue with **Approve** / **X**. Approving merges into an existing candidate when name+team already exists (trimmed, case-insensitive) — i.e. +1 to that tally — otherwise it becomes a new candidate. Admins also have a direct **Add a vote** form (for paper/in-person votes) and per-candidate **+1 / −1**.
+- **Uniqueness:** a random token in `localStorage` (`zca_mvp_token`) plus a `zca_mvp_voted` flag -> one vote per browser. Best-effort, not airtight (clearing storage or switching devices defeats it) — acceptable for this event. `localStorage` works in the deployed app; it's only disabled inside Claude's artifact preview sandbox.
+- Casts/approvals/deletes are **optimistic** in `useMvp`, so a tap updates the poll instantly; Realtime reconciles for other viewers.
 
 ---
 
 ## Data flow
 
-```
-   Supabase (Postgres + Realtime)
-            ▲   │
-   insert/  │   │ postgres_changes
-   delete   │   │ subscription
-            │   ▼
-         App.jsx ── registrations[]  ──► RosterView / FreeAgentsView / stats
-            │
-            ├── tab ──► which view renders
-            ├── session ──► isAdmin
-            ├── countdown ──► phase ──► gating
-            └── justSubmitted ──► ConfirmScreen
-```
-
-Key behaviors in `App.jsx`:
-
-- On mount: fetches the current session, subscribes to auth changes, loads all registrations, opens a Realtime channel.
-- `addRegistration` inserts the row, reloads, and routes to the confirm screen. (The team edit-code branch inside it is dead — free agents never trigger it.)
-- `switchTab` re-fetches on Roster / Free Agents clicks (belt-and-suspenders on top of Realtime).
-- `stats` is `useMemo`'d from registrations. Since rosters are gone, the `players` figure is effectively `teams + freeAgents`; it is no longer surfaced in the UI (the old `ScoreboardStats` is orphaned). The tab buttons show `stats.teams` and `stats.freeAgents` inline.
+`App.jsx` owns `registrations` (loaded once, kept fresh by a Realtime channel) and passes it to views. The schedule and MVP features each own their data through a dedicated hook (`useMatches`, `useMvp`) with its own Realtime channel — a deliberate, localized exception to the "App owns all data" rule, since those datasets are only used by one view each. `countdown` drives `phase`, which drives all gating.
 
 ---
 
 ## Design system
 
-Aesthetic: **vintage sports program / scoreboard.** Warm cream paper, ink black, rust red accents, uppercase tracked-out micro-text, italic serif subhead. Keep new components consistent with this.
+Aesthetic: **vintage sports program / scoreboard** — cream paper, ink, rust accents, uppercase tracked micro-text, italic serif subheads. Tailwind handles layout; colors and type use inline `style` referencing `C.*` tokens (don't migrate these into the Tailwind theme). Add new colors to `C` in `constants.js`.
 
-**Convention:** Tailwind classes handle layout, spacing, and responsiveness. Colors and typography use inline `style` referencing `C.*` tokens — *not* Tailwind theme extension. When adding a new color, add it to `C` in `constants.js`.
-
-Color tokens (`C` in `lib/constants.js`):
-
-| Token | Hex | Use |
-|---|---|---|
-| `cream` | `#F1EADA` | Page background |
-| `paper` | `#F8F2E2` | Card surfaces |
-| `ink` | `#0E1A33` | Primary text, borders |
-| `inkSoft` | `#1F2D4F` | Secondary text, footer |
-| `rust` | `#C84E2E` | Primary accent |
-| `rustDark` | `#A53D21` | Hover / pressed rust |
-| `olive` | `#5C6B3A` | (available, usage TBD) |
-| `line` | `#D9CFB8` | Subtle dividers |
-| `warn` / `warnBg` | `#B8860B` / `#FBF3DB` | Caution states |
-| `ok` / `okBg` | `#2D5A3D` / `#DDF1DE` | Success states |
-| `live` / `liveBg` | `#1A7F4F` / `#DDF1DE` | "Event live" accent |
-| `gold` / `goldBg` | `#B8860B` / `#FBF3DB` | Trophy / champions accent |
-
-Fonts (loaded via `index.html`): **Bebas Neue** (headline) and **Newsreader** italic (serif subhead).
+Tokens (`C`): `cream #F1EADA`, `paper #F8F2E2`, `ink #0E1A33`, `inkSoft #1F2D4F`, `rust #C84E2E`, `rustDark #A53D21`, `olive #5C6B3A`, `line #D9CFB8`, `warn/warnBg`, `ok #2D5A3D / okBg #DDF1DE`, `live #1A7F4F / liveBg`, `gold #B8860B / goldBg`.
+Fonts (via `index.html`): **Bebas Neue** (display) and **Newsreader** italic (subheads).
 
 ---
 
 ## Conventions
+- Inline styles for color/type tokens, Tailwind for layout.
+- Tab-based navigation: a new screen = a tab value, a `TabButton` (gated as needed), a render block, and an entry in the guard's visibility map.
+- `App.jsx` owns registrations; `matches`/`mvp_votes` live in their own hooks.
+- All times Eastern; event dates are UTC `Date`s with EDT-equivalent comments in `constants.js`.
+- `Free Agents` is a real church option (last in `CHURCHES`); don't filter it out.
 
-- **Inline styles for tokens, Tailwind for layout.** Don't migrate `C.*` colors into Tailwind config.
-- **No PropTypes or TypeScript.** Check call sites in `App.jsx` for the prop contract.
-- **Tab-based navigation.** New top-level screen = add a tab value, a `TabButton`, and a conditional render block in `App.jsx`. No routes.
-- **One source of truth for registrations.** `App.jsx` owns the array; child views receive it via props.
-- **Side effects gated by Realtime + manual reload.** Don't add additional fetch points; let the channel handle freshness.
-- **All times in Eastern.** Event dates in `constants.js` are UTC `Date` objects with EDT-equivalent comments. Respect the offset in any new time logic.
-- **`Free Agents` is a real church option.** The `CHURCHES` list ends with `"Free Agents"` to capture anyone not on the curated list. Don't filter it out.
-- **`CHURCHES` lives in `lib/constants.js`** (not `App.jsx`).
-
----
-
-## Testing phase transitions locally
-
-Phases are derived purely from `now` vs. the dates in `constants.js`, so to preview the post-deadline / live / post-event states, feed `useCountdown` a fake `now`. The low-friction option is a dev-only URL override (`?t=...`) read once on mount; with no param it uses the real clock and is inert in production:
-
-- `?t=2026-06-15T00:00:00-04:00` → `pre_event` (registration closed)
-- `?t=2026-07-10T12:00:00-04:00` → `live`
-- `?t=2026-07-11T00:00:00-04:00` → `complete`
-
-(Offsets are `-04:00` because the event dates are EDT.) Alternatively, temporarily rewind the dates in `constants.js` and revert before committing.
-
----
-
-## Roadmap gaps
-
-The app currently covers registration and the public team / free-agent lists. Still to build for full "before and after" management:
-
-- **Bracket / schedule + scoring (admin-run).** A `matches` table (division, round/slot index, two team refs + name snapshots, scores, status, winner, and `next_match_id`/`next_slot` for auto-advance) plus an admin "Tournament" screen (generate bracket per division, edit scores, mark final) and a public read-only "Bracket" tab. Gate both on `live` / `complete`. RLS: public select, authenticated insert/update.
-- **MVP poll (after the event).** A `complete`-gated tab with `mvp_candidates` (curated shortlist) and `mvp_votes` tables; one-vote-per-browser via a `localStorage` token + unique constraint (good-enough, not auth-grade). Public insert with a check, public select for the tally, realtime bar.
-
-When extending, the pattern is: add a view → gate it in `App.jsx` on the `phase` value (same way `RegistrationClosedView` is gated) → add the table + RLS + replication.
-
----
+## Testing phase transitions
+Append `?t=<ISO date>` to freeze the clock (override-aware in `useCountdown`):
+- `?t=2026-06-20T10:00:00-04:00` -> pre_event (Team List landing)
+- `?t=2026-07-10T10:00:00-04:00` -> live, before noon (no MVP tab yet)
+- `?t=2026-07-10T12:30:00-04:00` -> live, MVP voting open
+- `?t=2026-07-10T18:00:00-04:00` -> complete (MVP landing, "Go Vote for MVP!")
 
 ## Working in this codebase
-
 ```bash
-npm install         # first time
-npm run dev         # local dev on :5173
-npm run build       # production build
-npm run preview     # preview the build
+npm install
+npm run dev       # localhost:5173
+npm run build
+npm run preview
 ```
+Push to `main` -> Vercel auto-deploys.
 
-Push to `main` → Vercel auto-deploys in ~1 min.
+**Common edits:** churches -> `CHURCHES`; dates -> `REGISTRATION_DEADLINE` / `EVENT_START` / `EVENT_END` / `MVP_VOTE_OPEN`; display copy -> `EVENT_*` in `constants.js`; phase logic -> `getPhase` in `phase.js`; schedule fixture -> re-seed `matches`.
 
-**Common edits:**
-
-- **Add/change a church:** edit `CHURCHES` in `src/lib/constants.js`.
-- **Move a deadline:** edit `REGISTRATION_DEADLINE` / `EVENT_START` / `EVENT_END` in `constants.js`. Watch the UTC offset comments.
-- **Change event display copy:** edit `EVENT_DATE_DISPLAY`, `EVENT_TIME_DISPLAY`, `EVENT_ADDRESS` in `constants.js`.
-- **Tweak phase behavior:** edit `getPhase` in `lib/phase.js`.
-
-**Outstanding cleanup (post-model-change):**
-
-1. Delete `ManageTeamFlow.jsx` and `ScoreboardStats.jsx`.
-2. Remove `players: []` from the insert in `RosterView.jsx`'s `AdminAddTeam` (errors once the column is dropped).
-3. Strip the dead `generateEditCode` import + `edit_code` branch from `App.jsx`, and `generateEditCode` from `helpers.js`.
+## Roadmap / not yet built
+- **Auto-seed the playoffs** from final round-robin standings (currently manual).
+- **Stronger vote integrity** (route all public votes through pending; or soft-key on name+phone) if ballot-stuffing becomes a concern.
+- **Post-event recap** surface (champions/standings highlight) beyond the MVP landing.

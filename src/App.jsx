@@ -18,7 +18,7 @@ import { FreeAgentsView } from "./components/views/FreeAgentsView";
 import { InfoView } from "./components/views/InfoView";
 import { RegistrationClosedView } from "./components/views/RegistrationClosedView";
 import { ScheduleView } from "./components/views/ScheduleView";
-import { VoteView } from "./components/views/VoteView.jsx";
+import { VoteView } from "./components/views/VoteView";
 
 // The tab a visitor lands on for each phase.
 //   pre_registration -> Register   (sign up)
@@ -27,7 +27,8 @@ import { VoteView } from "./components/views/VoteView.jsx";
 function defaultTabFor(phase) {
   if (phase === "pre_registration") return "register";
   if (phase === "pre_event") return "roster";
-  return "schedule";
+  if (phase === "complete") return "vote";   // after 5 PM, push people to MVP voting
+  return "schedule";                          // live
 }
 
 export default function App() {
