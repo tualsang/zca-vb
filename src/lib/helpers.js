@@ -8,21 +8,6 @@ export function splitChurch(full) {
   };
 }
 
-// Generate a unique edit code like "FAIT-X7K2"
-export function generateEditCode(churchName) {
-  const prefix = (splitChurch(churchName).name || "TEAM")
-    .toUpperCase()
-    .replace(/[^A-Z]/g, "")
-    .slice(0, 4)
-    .padEnd(4, "X");
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1 to avoid confusion
-  let suffix = "";
-  for (let i = 0; i < 4; i++) {
-    suffix += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return `${prefix}-${suffix}`;
-}
-
 // Strip everything except digits, cap at 10
 export function sanitizePhoneInput(value) {
   return value.replace(/\D/g, "").slice(0, 10);
@@ -40,9 +25,4 @@ export function formatPhone(digits) {
 // Strip digits from name input
 export function sanitizeNameInput(value) {
   return value.replace(/[0-9]/g, "");
-}
-
-// Total players for a team includes the captain
-export function teamHeadcount(team) {
-  return (team.players?.length || 0) + 1;
 }

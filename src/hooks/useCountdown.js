@@ -1,17 +1,34 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getPhase } from "../lib/phase";
 
 /**
  * Returns a live-ticking countdown to the next phase boundary.
  * Updates every second. Returns null target when in the final phase.
+ *
+ * Dev/testing: append ?t=<ISO date> to the URL to freeze the clock at that
+ * instant and preview a phase. Include the EDT offset, e.g.
+ *   ?t=2026-06-15T00:00:00-04:00  → pre_event
+ *   ?t=2026-07-10T12:00:00-04:00  → live
+ *   ?t=2026-07-11T00:00:00-04:00  → complete
+ * With no param it uses the real clock, so this is inert in production.
  */
+function getOverrideNow() {
+  if (typeof window === "undefined") return null;
+  const t = new URLSearchParams(window.location.search).get("t");
+  if (!t) return null;
+  const d = new Date(t);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 export function useCountdown() {
-  const [now, setNow] = useState(() => new Date());
+  const override = useMemo(getOverrideNow, []);
+  const [now, setNow] = useState(() => override ?? new Date());
 
   useEffect(() => {
+    if (override) return;               // frozen at the override — don't tick
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [override]);
 
   const { phase, target } = getPhase(now);
 

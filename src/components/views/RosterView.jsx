@@ -34,7 +34,6 @@ function AdminAddTeam({ onAdded }) {
       church: buildChurchValue(),
       division,
       captain_name: captain.trim(),
-      players: [],
     }]);
     if (error) alert("Could not add team: " + error.message);
     else {

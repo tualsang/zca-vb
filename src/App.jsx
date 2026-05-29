@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Trophy, Users, UserPlus,
-  Flag, Lock, LogOut, Info,
+  Flag, Lock, LogOut, Info, CalendarDays,
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 import { C } from "./lib/constants";
-import { teamHeadcount, generateEditCode } from "./lib/helpers";
 import { isRegistrationOpen } from "./lib/phase";
 import { useCountdown } from "./hooks/useCountdown";
 import { CountdownBanner } from "./components/header/CountdownBanner";
@@ -19,6 +18,7 @@ import { RosterView } from "./components/views/RosterView";
 import { FreeAgentsView } from "./components/views/FreeAgentsView";
 import { InfoView } from "./components/views/InfoView";
 import { RegistrationClosedView } from "./components/views/RegistrationClosedView";
+import { ScheduleView } from "./components/views/ScheduleView";
 
 export default function App() {
   const [tab, setTab] = useState("register");
@@ -67,10 +67,8 @@ export default function App() {
   };
 
   const addRegistration = async (entry) => {
-    const editCode = entry.kind === "team" ? generateEditCode(entry.church) : null;
-    const payload = editCode ? { ...entry, edit_code: editCode } : entry;
     const { data, error } = await supabase
-      .from("registrations").insert([payload]).select().single();
+      .from("registrations").insert([entry]).select().single();
     if (error) {
       alert("Something went wrong saving your registration. Please try again.\n\n" + error.message);
       return;
@@ -90,24 +88,32 @@ export default function App() {
   const handleSignOut = async () => { await supabase.auth.signOut(); };
 
   const stats = useMemo(() => {
-    let players = 0, teamPlayers = 0, teams = 0, freeAgents = 0;
+    let teams = 0, freeAgents = 0;
     registrations.forEach((r) => {
-      if (r.kind === "team") {
-        teams++;
-        const count = teamHeadcount(r);
-        players += count;
-        teamPlayers += count;
-      } else {
-        freeAgents++;
-        players++;
-      }
+      if (r.kind === "team") teams++;
+      else freeAgents++;
     });
-    return { players, teamPlayers, teams, freeAgents };
+    return { teams, freeAgents };
   }, [registrations]);
 
   // Public registration is only open in phase 1. Admin can always register.
   const registrationOpenForPublic = isRegistrationOpen(phase);
   const canShowRegisterForm = registrationOpenForPublic || isAdmin;
+
+  // Free agents matter only while registration is open. After it closes the
+  // tab is hidden from the public, but the admin keeps it for squad placement.
+  const showFreeAgents = registrationOpenForPublic || isAdmin;
+
+  // The schedule is the inverse: shown to the public once registration ends
+  // (replacing Free Agents), and available to the admin at any time for setup.
+  const showSchedule = !registrationOpenForPublic || isAdmin;
+
+  // If the phase flips while a public visitor is on a now-hidden tab, bounce
+  // them to the roster instead of leaving a blank panel.
+  useEffect(() => {
+    if (!showFreeAgents && tab === "freeagents") setTab("roster");
+    if (!showSchedule && tab === "schedule") setTab("roster");
+  }, [showFreeAgents, showSchedule, tab]);
 
   return (
     <div style={{ background: C.cream, color: C.ink, minHeight: "100vh" }}>
@@ -155,9 +161,16 @@ export default function App() {
               <TabButton active={tab === "roster"} onClick={() => switchTab("roster")} fullWidth>
                 <Users size={14} /> Team List <span className="opacity-70">({stats.teams})</span>
               </TabButton>
-              <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")} fullWidth>
-                <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
-              </TabButton>
+              {showFreeAgents && (
+                <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")} fullWidth>
+                  <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
+                </TabButton>
+              )}
+              {showSchedule && (
+                <TabButton active={tab === "schedule"} onClick={() => switchTab("schedule")} fullWidth>
+                  <CalendarDays size={14} /> Schedule
+                </TabButton>
+              )}
               <TabButton active={tab === "info"} onClick={() => switchTab("info")} fullWidth>
                 <Info size={14} /> Info
               </TabButton>
@@ -169,9 +182,16 @@ export default function App() {
               <TabButton active={tab === "roster"} onClick={() => switchTab("roster")}>
                 <Users size={14} /> Team List <span className="opacity-70">({stats.teams})</span>
               </TabButton>
-              <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")}>
-                <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
-              </TabButton>
+              {showFreeAgents && (
+                <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")}>
+                  <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
+                </TabButton>
+              )}
+              {showSchedule && (
+                <TabButton active={tab === "schedule"} onClick={() => switchTab("schedule")}>
+                  <CalendarDays size={14} /> Schedule
+                </TabButton>
+              )}
               <TabButton active={tab === "info"} onClick={() => switchTab("info")}>
                 <Info size={14} /> Info
               </TabButton>
@@ -204,10 +224,11 @@ export default function App() {
           <RosterView registrations={registrations} loading={loading}
             isAdmin={isAdmin} onRemove={removeRegistration} />
         )}
-        {tab === "freeagents" && (
+        {tab === "freeagents" && showFreeAgents && (
           <FreeAgentsView registrations={registrations} loading={loading}
             isAdmin={isAdmin} onRemove={removeRegistration} />
         )}
+        {tab === "schedule" && showSchedule && <ScheduleView isAdmin={isAdmin} />}
         {tab === "info" && <InfoView />}
       </main>
 

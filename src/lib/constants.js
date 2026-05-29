@@ -28,7 +28,7 @@ export const EVENT_END = new Date("2026-07-10T21:00:00Z");
 // Event metadata
 export const EVENT_DATE_DISPLAY = "July 10, 2026";
 export const EVENT_TIME_DISPLAY = "9:00 AM – 5:00 PM EDT";
-export const EVENT_ADDRESS = "4922 Leeds Ave, Halethorpe, MD 21227";
+export const EVENT_ADDRESS = "8700 Old Annapolis Road, Ellicott City, MD 21043";
 
 // ─── Color tokens ─────────────────────────────────────────────────────────
 export const C = {

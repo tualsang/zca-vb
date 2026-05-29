@@ -47,7 +47,7 @@ export function RegistrationClosedView({ phase, onSwitchToRoster }) {
         <button onClick={onSwitchToRoster}
           className="px-6 py-3 text-sm uppercase tracking-widest"
           style={{ background: C.rust, color: C.cream, fontWeight: 700 }}>
-          View Roster
+          View Team List
         </button>
       </div>
     </div>
