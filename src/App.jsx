@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Trophy, Users, UserPlus,
-  Flag, Lock, LogOut, Info, CalendarDays,
+  Flag, Lock, LogOut, Info, CalendarDays, Vote,
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
-import { C } from "./lib/constants";
+import { C, MVP_VOTE_OPEN } from "./lib/constants";
 import { useCountdown } from "./hooks/useCountdown";
 import { CountdownBanner } from "./components/header/CountdownBanner";
 
@@ -18,6 +18,7 @@ import { FreeAgentsView } from "./components/views/FreeAgentsView";
 import { InfoView } from "./components/views/InfoView";
 import { RegistrationClosedView } from "./components/views/RegistrationClosedView";
 import { ScheduleView } from "./components/views/ScheduleView";
+import { VoteView } from "./components/views/VoteView.jsx";
 
 // The tab a visitor lands on for each phase.
 //   pre_registration -> Register   (sign up)
@@ -111,21 +112,20 @@ export default function App() {
   const isLive = phase === "live";
   const isComplete = phase === "complete";
 
-  // Public sees the flow described below; the admin keeps management tabs open
-  // at all times so they can run the event.
-  const showRegister = isPre || isAdmin;                  // 1. hidden after the deadline
-  const showRoster = isPre || isPreEvent || isAdmin;      // 2. hidden once the tournament starts
-  const showFreeAgents = isPre || isAdmin;                // public only while signing up
-  const showSchedule = !isPre || isAdmin;                 // appears once registration ends
+  // MVP voting opens at noon on tournament day and stays open thereafter.
+  const votingOpen = countdown.now >= MVP_VOTE_OPEN;
+
+  // Public flow; the admin keeps management tabs open at all times.
+  const showRegister = isPre || isAdmin;            // hidden once the deadline passes
+  const showRoster = true;                          // Team List is visible in every phase
+  const showFreeAgents = isPre || isAdmin;          // public only while signing up
+  const showSchedule = !isPre || isAdmin;           // appears once registration ends
+  const showVote = votingOpen || isAdmin;           // opens at noon on tournament day
   const showInfo = true;
 
-  // 3. The live window is a clean public scoreboard: no header for visitors.
-  //    The admin keeps the header so they can navigate and score.
-  const hideHeader = isLive && !isAdmin;
-
   // Land on the right tab for the current phase, and re-land whenever the phase
-  // rolls over (e.g. the deadline passes or 9 AM arrives) so the "landing page"
-  // changes on its own.
+  // rolls over (deadline passes, 9 AM arrives) so the landing page changes on
+  // its own without a reload.
   const prevPhase = useRef(null);
   useEffect(() => {
     if (prevPhase.current !== phase) {
@@ -139,113 +139,125 @@ export default function App() {
   useEffect(() => {
     const visible = {
       register: showRegister, roster: showRoster, freeagents: showFreeAgents,
-      schedule: showSchedule, info: showInfo, confirm: true,
+      schedule: showSchedule, vote: showVote, info: showInfo, confirm: true,
     };
     if (visible[tab] === false) setTab(defaultTabFor(phase));
-  }, [tab, showRegister, showRoster, showFreeAgents, showSchedule, phase]);
+  }, [tab, showRegister, showRoster, showFreeAgents, showSchedule, showVote, phase]);
 
   return (
     <div style={{ background: C.cream, color: C.ink, minHeight: "100vh" }}>
-      {!hideHeader && (
-        <header className="border-b" style={{ borderColor: C.ink }}>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-5 sm:pb-6">
-            <div className="flex items-center gap-2 mb-1 flex-wrap" style={{ color: C.rust }}>
-              <Trophy size={14} strokeWidth={2.5} />
-              <span className="text-[10px] sm:text-xs tracking-[0.25em] uppercase font-semibold">
-                ZCA Conference 2026
+      <header className="border-b" style={{ borderColor: C.ink }}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-5 sm:pb-6">
+          <div className="flex items-center gap-2 mb-1 flex-wrap" style={{ color: C.rust }}>
+            <Trophy size={14} strokeWidth={2.5} />
+            <span className="text-[10px] sm:text-xs tracking-[0.25em] uppercase font-semibold">
+              ZCA Conference 2026
+            </span>
+            {isAdmin && (
+              <span className="px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest"
+                style={{ background: C.ink, color: C.cream, letterSpacing: "0.15em" }}>
+                Admin
               </span>
-              {isAdmin && (
-                <span className="px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest"
-                  style={{ background: C.ink, color: C.cream, letterSpacing: "0.15em" }}>
-                  Admin
-                </span>
-              )}
-            </div>
-            <h1 className="leading-none tracking-tight" style={{
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: "clamp(40px, 11vw, 88px)",
-              color: C.ink, letterSpacing: "0.01em",
-            }}>
-              Volleyball <span style={{ color: C.rust }}>Tournament</span>
-            </h1>
+            )}
+          </div>
+          <h1 className="leading-none tracking-tight" style={{
+            fontFamily: "'Bebas Neue', sans-serif",
+            fontSize: "clamp(40px, 11vw, 88px)",
+            color: C.ink, letterSpacing: "0.01em",
+          }}>
+            Volleyball <span style={{ color: C.rust }}>Tournament</span>
+          </h1>
 
-            {isComplete ? (
-              <p className="mt-2 flex items-center gap-2" style={{
+          {isComplete ? (
+            <button onClick={() => switchTab("vote")}
+              className="mt-2 inline-flex items-center gap-2 hover:opacity-80 transition-opacity"
+              style={{
                 fontFamily: "'Bebas Neue', sans-serif",
                 fontSize: "clamp(22px, 7vw, 34px)", color: C.rust, letterSpacing: "0.02em",
               }}>
-                <Trophy size={22} strokeWidth={2.5} /> Go Vote for MVP!
-              </p>
-            ) : isPre ? (
-              <p className="mt-2 italic max-w-xl" style={{
-                fontFamily: "'Newsreader', serif", color: C.inkSoft,
-                fontSize: "clamp(14px, 4vw, 17px)",
-              }}>
-                Captains register your team to{" "}
-                <a href="tel:7042016580" style={{ color: C.rust }}>704 201 6580</a>.
-                <br />
-                If you don't have a team but want to play as a free agent, please register below.
-              </p>
-            ) : null}
+              <Trophy size={22} strokeWidth={2.5} /> Go Vote for MVP!
+            </button>
+          ) : isPre ? (
+            <p className="mt-2 italic max-w-xl" style={{
+              fontFamily: "'Newsreader', serif", color: C.inkSoft,
+              fontSize: "clamp(14px, 4vw, 17px)",
+            }}>
+              Captains register your team to{" "}
+              <a href="tel:7042016580" style={{ color: C.rust }}>704 201 6580</a>.
+              <br />
+              If you don't have a team but want to play as a free agent, please register below.
+            </p>
+          ) : null}
 
-            <CountdownBanner countdown={countdown} isAdmin={isAdmin} />
+          {/* Countdown only during the two pre-event phases. During the live
+              window and after the event, there is no countdown banner. */}
+          {(isPre || isPreEvent) && <CountdownBanner countdown={countdown} isAdmin={isAdmin} />}
 
-            <nav className="mt-5 sm:mt-6">
-              {/* Mobile: 2-row grid. Desktop: single row flex */}
-              <div className="grid grid-cols-2 sm:hidden gap-1.5">
-                {showRegister && (
-                  <TabButton active={tab === "register"} onClick={() => switchTab("register")} primary fullWidth>
-                    <UserPlus size={14} /> Register
-                  </TabButton>
-                )}
-                {showRoster && (
-                  <TabButton active={tab === "roster"} onClick={() => switchTab("roster")} fullWidth>
-                    <Users size={14} /> Team List <span className="opacity-70">({stats.teams})</span>
-                  </TabButton>
-                )}
-                {showFreeAgents && (
-                  <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")} fullWidth>
-                    <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
-                  </TabButton>
-                )}
-                {showSchedule && (
-                  <TabButton active={tab === "schedule"} onClick={() => switchTab("schedule")} fullWidth>
-                    <CalendarDays size={14} /> Schedule
-                  </TabButton>
-                )}
-                <TabButton active={tab === "info"} onClick={() => switchTab("info")} fullWidth>
-                  <Info size={14} /> Info
+          <nav className="mt-5 sm:mt-6">
+            {/* Mobile: 2-row grid. Desktop: single row flex */}
+            <div className="grid grid-cols-2 sm:hidden gap-1.5">
+              {showRegister && (
+                <TabButton active={tab === "register"} onClick={() => switchTab("register")} primary fullWidth>
+                  <UserPlus size={14} /> Register
                 </TabButton>
-              </div>
-              <div className="hidden sm:flex gap-2 flex-wrap items-stretch justify-center">
-                {showRegister && (
-                  <TabButton active={tab === "register"} onClick={() => switchTab("register")} primary>
-                    <UserPlus size={14} /> Register
-                  </TabButton>
-                )}
-                {showRoster && (
-                  <TabButton active={tab === "roster"} onClick={() => switchTab("roster")}>
-                    <Users size={14} /> Team List <span className="opacity-70">({stats.teams})</span>
-                  </TabButton>
-                )}
-                {showFreeAgents && (
-                  <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")}>
-                    <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
-                  </TabButton>
-                )}
-                {showSchedule && (
-                  <TabButton active={tab === "schedule"} onClick={() => switchTab("schedule")}>
-                    <CalendarDays size={14} /> Schedule
-                  </TabButton>
-                )}
-                <TabButton active={tab === "info"} onClick={() => switchTab("info")}>
-                  <Info size={14} /> Info
+              )}
+              {showRoster && (
+                <TabButton active={tab === "roster"} onClick={() => switchTab("roster")} fullWidth>
+                  <Users size={14} /> Team List <span className="opacity-70">({stats.teams})</span>
                 </TabButton>
-              </div>
-            </nav>
-          </div>
-        </header>
-      )}
+              )}
+              {showFreeAgents && (
+                <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")} fullWidth>
+                  <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
+                </TabButton>
+              )}
+              {showSchedule && (
+                <TabButton active={tab === "schedule"} onClick={() => switchTab("schedule")} fullWidth>
+                  <CalendarDays size={14} /> Schedule
+                </TabButton>
+              )}
+              {showVote && (
+                <TabButton active={tab === "vote"} onClick={() => switchTab("vote")} fullWidth>
+                  <Vote size={14} /> MVP Vote
+                </TabButton>
+              )}
+              <TabButton active={tab === "info"} onClick={() => switchTab("info")} fullWidth>
+                <Info size={14} /> Info
+              </TabButton>
+            </div>
+            <div className="hidden sm:flex gap-2 flex-wrap items-stretch justify-center">
+              {showRegister && (
+                <TabButton active={tab === "register"} onClick={() => switchTab("register")} primary>
+                  <UserPlus size={14} /> Register
+                </TabButton>
+              )}
+              {showRoster && (
+                <TabButton active={tab === "roster"} onClick={() => switchTab("roster")}>
+                  <Users size={14} /> Team List <span className="opacity-70">({stats.teams})</span>
+                </TabButton>
+              )}
+              {showFreeAgents && (
+                <TabButton active={tab === "freeagents"} onClick={() => switchTab("freeagents")}>
+                  <Flag size={14} /> Free Agents <span className="opacity-70">({stats.freeAgents})</span>
+                </TabButton>
+              )}
+              {showSchedule && (
+                <TabButton active={tab === "schedule"} onClick={() => switchTab("schedule")}>
+                  <CalendarDays size={14} /> Schedule
+                </TabButton>
+              )}
+              {showVote && (
+                <TabButton active={tab === "vote"} onClick={() => switchTab("vote")}>
+                  <Vote size={14} /> MVP Vote
+                </TabButton>
+              )}
+              <TabButton active={tab === "info"} onClick={() => switchTab("info")}>
+                <Info size={14} /> Info
+              </TabButton>
+            </div>
+          </nav>
+        </div>
+      </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
         {tab === "register" && (
@@ -276,6 +288,7 @@ export default function App() {
             isAdmin={isAdmin} onRemove={removeRegistration} />
         )}
         {tab === "schedule" && showSchedule && <ScheduleView isAdmin={isAdmin} />}
+        {tab === "vote" && showVote && <VoteView isAdmin={isAdmin} />}
         {tab === "info" && <InfoView />}
       </main>
 

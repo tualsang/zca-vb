@@ -2,14 +2,15 @@ import { useState, useEffect, useMemo } from "react";
 import { getPhase } from "../lib/phase";
 
 /**
- * Returns a live-ticking countdown to the next phase boundary.
- * Updates every second. Returns null target when in the final phase.
+ * Returns a live-ticking countdown to the next phase boundary, plus the `now`
+ * it is using (so callers can gate things on specific times, like MVP voting
+ * opening at noon). Updates every second.
  *
  * Dev/testing: append ?t=<ISO date> to the URL to freeze the clock at that
  * instant and preview a phase. Include the EDT offset, e.g.
- *   ?t=2026-06-15T00:00:00-04:00  → pre_event
- *   ?t=2026-07-10T12:00:00-04:00  → live
- *   ?t=2026-07-11T00:00:00-04:00  → complete
+ *   ?t=2026-06-15T00:00:00-04:00  -> pre_event
+ *   ?t=2026-07-10T12:00:00-04:00  -> live (and MVP voting open)
+ *   ?t=2026-07-11T00:00:00-04:00  -> complete
  * With no param it uses the real clock, so this is inert in production.
  */
 function getOverrideNow() {
@@ -33,13 +34,12 @@ export function useCountdown() {
   const { phase, target } = getPhase(now);
 
   if (!target) {
-    // Event complete — no countdown
-    return { phase, target: null, expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
+    return { phase, target: null, now, expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
   }
 
   const diffMs = target.getTime() - now.getTime();
   if (diffMs <= 0) {
-    return { phase, target, expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
+    return { phase, target, now, expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
   }
 
   const totalSeconds = Math.floor(diffMs / 1000);
@@ -48,5 +48,5 @@ export function useCountdown() {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
-  return { phase, target, expired: false, days, hours, minutes, seconds };
+  return { phase, target, now, expired: false, days, hours, minutes, seconds };
 }

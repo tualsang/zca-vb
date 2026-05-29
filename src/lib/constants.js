@@ -20,15 +20,19 @@ export const CHURCHES = [
 //
 // June 14, 2026, 11:59 PM EDT  →  03:59 UTC on June 15
 // July 10, 2026, 9:00 AM EDT   →  13:00 UTC on July 10
+// July 10, 2026, 12:00 PM EDT  →  16:00 UTC on July 10
 // July 10, 2026, 5:00 PM EDT   →  21:00 UTC on July 10
 export const REGISTRATION_DEADLINE = new Date("2026-06-15T03:59:00Z");
 export const EVENT_START = new Date("2026-07-10T13:00:00Z");
 export const EVENT_END = new Date("2026-07-10T21:00:00Z");
 
+// MVP voting opens at noon on tournament day and stays open from then on.
+export const MVP_VOTE_OPEN = new Date("2026-07-10T16:00:00Z");
+
 // Event metadata
 export const EVENT_DATE_DISPLAY = "July 10, 2026";
 export const EVENT_TIME_DISPLAY = "9:00 AM – 5:00 PM EDT";
-export const EVENT_ADDRESS = "8700 Old Annapolis Road, Ellicott City, MD 21043";
+export const EVENT_ADDRESS = "8700 Old Annapolis Road,Ellicott City, MD 21043";
 
 // ─── Color tokens ─────────────────────────────────────────────────────────
 export const C = {
