@@ -65,13 +65,20 @@ function computeStandings(matches, division) {
     matches
         .filter((m) => m.division === division && m.phase === "round_robin")
         .forEach((m) => {
+            if (!m.team_a || !m.team_b) return;
             const r = resultOf(m.sets);
-            if (!r.decided || !m.team_a || !m.team_b) return;
+            // Count any game that has at least one set scored, decided or not.
+            const played = (Array.isArray(m.sets) ? m.sets : []).some(
+                (p) => (Number(p[0]) || 0) + (Number(p[1]) || 0) > 0
+            );
+            if (!played) return;
             const ka = norm(m.team_a), kb = norm(m.team_b);
             ensure(ka, m.team_a.trim()); ensure(kb, m.team_b.trim());
             const A = rows[ka], B = rows[kb];
             A.p++; B.p++;
-            if (r.wonA > r.wonB) { A.w++; B.l++; } else { B.w++; A.l++; }
+            // Award W/L to whoever currently leads on set wins; a tie leaves both unchanged.
+            if (r.wonA > r.wonB) { A.w++; B.l++; }
+            else if (r.wonB > r.wonA) { B.w++; A.l++; }
             A.sw += r.wonA; A.sl += r.wonB; B.sw += r.wonB; B.sl += r.wonA;
             A.pf += r.pfA; A.pa += r.pfB; B.pf += r.pfB; B.pa += r.pfA;
         });
@@ -88,6 +95,23 @@ function computeStandings(matches, division) {
                 y.ptRatio - x.ptRatio ||
                 x.name.localeCompare(y.name)
         );
+}
+
+// Reads the playoff bracket for one division into a podium.
+// Winner = current set leader (decided or not); null when tied / no score / no teams.
+function computePodium(matches, division) {
+    const find = (phase) => matches.find((m) => m.division === division && m.phase === phase);
+    const winnerLoser = (m) => {
+        if (!m || !m.team_a || !m.team_b) return { winner: null, loser: null };
+        const r = resultOf(m.sets);
+        if (r.wonA === r.wonB) return { winner: null, loser: null };
+        return r.wonA > r.wonB
+            ? { winner: m.team_a.trim(), loser: m.team_b.trim() }
+            : { winner: m.team_b.trim(), loser: m.team_a.trim() };
+    };
+    const f = winnerLoser(find("final"));
+    const t = winnerLoser(find("third_place"));
+    return { champion: f.winner, runnerUp: f.loser, third: t.winner };
 }
 
 const ratioStr = (num, den) => (den === 0 ? (num > 0 ? "—" : "0.00") : (num / den).toFixed(2));
@@ -169,6 +193,8 @@ export function ScheduleView({ isAdmin }) {
 
     const mensStandings = useMemo(() => computeStandings(matches, "mens"), [matches]);
     const womensStandings = useMemo(() => computeStandings(matches, "womens"), [matches]);
+    const mensPodium = useMemo(() => computePodium(matches, "mens"), [matches]);
+    const womensPodium = useMemo(() => computePodium(matches, "womens"), [matches]);
 
     if (loading) return <LoadingState />;
 
@@ -180,6 +206,7 @@ export function ScheduleView({ isAdmin }) {
                 <EmptyState message="The schedule will be posted here once it's set." />
             ) : filter === "table" ? (
                 <div className="space-y-10 sm:space-y-12">
+                    <ResultsPanel mens={mensPodium} womens={womensPodium} />
                     <StandingsTable title="Men's Standings" rows={mensStandings} />
                     <StandingsTable title="Women's Standings" rows={womensStandings} />
                 </div>
@@ -367,6 +394,51 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit }) {
     );
 }
 
+function ResultsPanel({ mens, womens }) {
+    const has = (p) => p.champion || p.runnerUp || p.third;
+    // Stay hidden until the playoffs start producing results.
+    if (!has(mens) && !has(womens)) return null;
+    return (
+        <section>
+            <div className="flex items-baseline justify-between border-b-2 pb-2 mb-4" style={{ borderColor: C.ink }}>
+                <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(28px, 7vw, 44px)", lineHeight: 1, color: C.ink, letterSpacing: "0.02em" }}>
+                    Final Results
+                </h2>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+                <Podium title="Men's" podium={mens} />
+                <Podium title="Women's" podium={womens} />
+            </div>
+        </section>
+    );
+}
+
+function Podium({ title, podium }) {
+    const rows = [
+        { label: "Champion", name: podium.champion, accent: C.gold, bg: C.goldBg },
+        { label: "Runner-Up", name: podium.runnerUp, accent: C.inkSoft, bg: C.paper },
+        { label: "Third Place", name: podium.third, accent: C.rust, bg: C.paper },
+    ];
+    return (
+        <div className="border" style={{ borderColor: C.ink }}>
+            <div className="px-3 py-2 text-[11px] uppercase tracking-widest font-bold" style={{ background: C.ink, color: C.cream }}>
+                {title} Division
+            </div>
+            {rows.map((r, i) => (
+                <div key={r.label} className="flex items-center gap-3 px-3 py-2.5"
+                    style={{ background: r.bg, borderTop: i ? `1px solid ${C.line}` : "none" }}>
+                    <span className="text-[10px] uppercase tracking-wider font-bold w-[5.5rem] shrink-0" style={{ color: r.accent }}>
+                        {r.label}
+                    </span>
+                    <span className="flex-1 truncate" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: r.name ? C.ink : C.inkSoft }}>
+                        {r.name || "TBD"}
+                    </span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 function StandingsTable({ title, rows }) {
     return (
         <section>
@@ -377,7 +449,7 @@ function StandingsTable({ title, rows }) {
             </div>
 
             {rows.length === 0 ? (
-                <EmptyState message="No completed matches yet." />
+                <EmptyState message="No scores entered yet." />
             ) : (
                 <div className="border" style={{ borderColor: C.ink }}>
                     <div className="grid items-center text-[10px] sm:text-[11px] uppercase tracking-wider font-bold"
