@@ -32,7 +32,7 @@ export const MVP_VOTE_OPEN = new Date("2026-07-10T16:00:00Z");
 // Event metadata
 export const EVENT_DATE_DISPLAY = "July 10, 2026";
 export const EVENT_TIME_DISPLAY = "9:00 AM – 5:00 PM EDT";
-export const EVENT_ADDRESS = "8700 Old Annapolis Road, Ellicott City, MD 21043";
+export const EVENT_ADDRESS = "8500 Ridgelys Run Rd, Jessup, MD 20794";
 
 // ─── Color tokens ─────────────────────────────────────────────────────────
 export const C = {
