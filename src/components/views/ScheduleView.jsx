@@ -62,26 +62,33 @@ function computeStandings(matches, division) {
     const ensure = (key, disp) => {
         if (!rows[key]) rows[key] = { name: disp, p: 0, w: 0, l: 0, sw: 0, sl: 0, pf: 0, pa: 0 };
     };
-    matches
-        .filter((m) => m.division === division && m.phase === "round_robin")
-        .forEach((m) => {
-            if (!m.team_a || !m.team_b) return;
-            const r = resultOf(m.sets);
-            // Count any game that has at least one set scored, decided or not.
-            const played = (Array.isArray(m.sets) ? m.sets : []).some(
-                (p) => (Number(p[0]) || 0) + (Number(p[1]) || 0) > 0
-            );
-            if (!played) return;
-            const ka = norm(m.team_a), kb = norm(m.team_b);
-            ensure(ka, m.team_a.trim()); ensure(kb, m.team_b.trim());
-            const A = rows[ka], B = rows[kb];
-            A.p++; B.p++;
-            // Award W/L to whoever currently leads on set wins; a tie leaves both unchanged.
-            if (r.wonA > r.wonB) { A.w++; B.l++; }
-            else if (r.wonB > r.wonA) { B.w++; A.l++; }
-            A.sw += r.wonA; A.sl += r.wonB; B.sw += r.wonB; B.sl += r.wonA;
-            A.pf += r.pfA; A.pa += r.pfB; B.pf += r.pfB; B.pa += r.pfA;
-        });
+    const rr = matches.filter((m) => m.division === division && m.phase === "round_robin");
+
+    // Register every team in the round-robin fixture first, so they all appear
+    // in the table (with zeros) even before any scores are entered. Placeholder
+    // names like M1..M4 / W1..W4 show until the admin renames them.
+    rr.forEach((m) => {
+        if (m.team_a) ensure(norm(m.team_a), m.team_a.trim());
+        if (m.team_b) ensure(norm(m.team_b), m.team_b.trim());
+    });
+
+    rr.forEach((m) => {
+        if (!m.team_a || !m.team_b) return;
+        const r = resultOf(m.sets);
+        // Count any game that has at least one set scored, decided or not.
+        const played = (Array.isArray(m.sets) ? m.sets : []).some(
+            (p) => (Number(p[0]) || 0) + (Number(p[1]) || 0) > 0
+        );
+        if (!played) return;
+        const ka = norm(m.team_a), kb = norm(m.team_b);
+        const A = rows[ka], B = rows[kb];
+        A.p++; B.p++;
+        // Award W/L to whoever currently leads on set wins; a tie leaves both unchanged.
+        if (r.wonA > r.wonB) { A.w++; B.l++; }
+        else if (r.wonB > r.wonA) { B.w++; A.l++; }
+        A.sw += r.wonA; A.sl += r.wonB; B.sw += r.wonB; B.sl += r.wonA;
+        A.pf += r.pfA; A.pa += r.pfB; B.pf += r.pfB; B.pa += r.pfA;
+    });
     return Object.values(rows)
         .map((t) => ({
             ...t,
@@ -303,6 +310,29 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit }) {
         setTimeout(() => setSaved(false), 1500);
     };
 
+    // One score cell per set for the given side (0 = team A, 1 = team B).
+    // The set winner is tinted rust; columns line up across both team rows.
+    const renderSets = (side) =>
+        played ? (
+            <div className="flex items-center gap-3 sm:gap-3.5 shrink-0">
+                {pairs.map((p, i) => {
+                    const mine = Number(p[side]) || 0;
+                    const other = Number(p[side === 0 ? 1 : 0]) || 0;
+                    return (
+                        <span key={i} className="text-center"
+                            style={{
+                                fontFamily: "'Bebas Neue', sans-serif",
+                                fontSize: 22,
+                                width: 22,
+                                color: mine > other ? C.rust : C.inkSoft,
+                            }}>
+                            {mine}
+                        </span>
+                    );
+                })}
+            </div>
+        ) : null;
+
     return (
         <article className="border p-4 sm:p-5" style={{ borderColor: C.ink, background: C.paper }}>
             <div className="flex items-center justify-between gap-2">
@@ -315,7 +345,7 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit }) {
                 </span>
             </div>
 
-            <div className="flex items-center justify-between gap-3 mt-3">
+            <div className="flex items-center gap-3 mt-3">
                 {isAdmin ? (
                     <input
                         value={draft.team_a}
@@ -325,16 +355,24 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit }) {
                         style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: C.ink, borderColor: C.line }}
                     />
                 ) : (
-                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: aWin ? C.rust : C.ink }}>
-                        {teamA || "TBD"}
-                    </span>
+                    <>
+                        <span className="flex-1 truncate" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: aWin ? C.rust : C.ink }}>
+                            {teamA || "TBD"}
+                        </span>
+                        {renderSets(0)}
+                    </>
                 )}
-                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: C.ink, minWidth: 18, textAlign: "center" }}>
+                <span style={{
+                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: C.ink,
+                    minWidth: 18, textAlign: "center",
+                    borderLeft: !isAdmin && played ? `1px solid ${C.line}` : "none",
+                    paddingLeft: !isAdmin && played ? 12 : 0,
+                }}>
                     {played ? r.wonA : "–"}
                 </span>
             </div>
 
-            <div className="flex items-center justify-between gap-3 mt-1">
+            <div className="flex items-center gap-3 mt-1">
                 {isAdmin ? (
                     <input
                         value={draft.team_b}
@@ -344,20 +382,22 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit }) {
                         style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: C.ink, borderColor: C.line }}
                     />
                 ) : (
-                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: bWin ? C.rust : C.ink }}>
-                        {teamB || "TBD"}
-                    </span>
+                    <>
+                        <span className="flex-1 truncate" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: bWin ? C.rust : C.ink }}>
+                            {teamB || "TBD"}
+                        </span>
+                        {renderSets(1)}
+                    </>
                 )}
-                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: C.ink, minWidth: 18, textAlign: "center" }}>
+                <span style={{
+                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: C.ink,
+                    minWidth: 18, textAlign: "center",
+                    borderLeft: !isAdmin && played ? `1px solid ${C.line}` : "none",
+                    paddingLeft: !isAdmin && played ? 12 : 0,
+                }}>
                     {played ? r.wonB : "–"}
                 </span>
             </div>
-
-            {!isAdmin && played && (
-                <div className="mt-3 text-[11px]" style={{ color: C.inkSoft, letterSpacing: "0.04em" }}>
-                    {pairs.map((p, i) => `${p[0]}–${p[1]}`).join("  ·  ")}
-                </div>
-            )}
 
             {isAdmin && (
                 <div className="mt-3 pt-3 space-y-2" style={{ borderTop: `1px dashed ${C.line}` }}>
