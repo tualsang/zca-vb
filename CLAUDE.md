@@ -16,7 +16,7 @@ The app is **phase-driven**: a single `phase` value (computed from the current t
 
 **Tournament facts:**
 - **Date:** July 10, 2026, 9:00 AM – 5:00 PM EDT
-- **Location:** 8700 Old Annapolis Road, Ellicott City, MD 21043
+- **Location:** 8500 Ridgelys Run Rd, Jessup, MD 20794
 - **Registration deadline:** June 14, 2026, 11:59 PM EDT
 - **MVP voting opens:** July 10, 2026, 12:00 PM EDT
 - **Divisions:** Men's and Women's. **All times Eastern.**

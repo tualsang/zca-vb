@@ -43,28 +43,34 @@ export function InfoView() {
 
         <Section title="Tournament Format">
           <p className="mb-3">
-            <strong>TDB</strong>
+            <strong>Full Round Robin:</strong> Everyone plays everyone. Top 2 plays a championship match.
+          </p>
+          <p>
+            <strong>Schedule:</strong> All schedules are tentative and subject to change.
           </p>
         </Section>
 
         <Section title="Scoring">
           <ul className="space-y-2">
-            <li><strong>TDB</strong></li>
+            <li><strong>Group Games: </strong>Best of 3 to 25: Cap at 30</li>
+            <li><strong>Championship Match: </strong>Best of 3 to 25: No Cap</li>
+            <li><strong>Rally Scoring: </strong>All sets to 25 and win by deuces.</li>
           </ul>
         </Section>
 
         <Section title="Rules">
           <RulesGrid rows={[
-            ["Rotation", "Please Rotate"],
+            ["Rotation", "Men ✓ · Women ✗"],
             ["10-Foot Line", "Men ✓ · Women ✗"],
             ["Foot Fault (under-net line)", "Not enforced"],
             ["Net Fault", "Enforced"],
             ["Doubles", "Not strict"],
-            ["Carry", "SUPER STRICT"],
+            ["Carry", "Not strict"],
+            ["Other Rules", "Up to Referees' Discretion"],
           ]} />
         </Section>
       </section>
-    </div>
+    </div >
   );
 }
 
