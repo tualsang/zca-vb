@@ -46,15 +46,16 @@ const STATUS = {
 
 function cardLabel(m) {
     const div = m.division === "mens" ? "Men's" : "Women's";
-    if (m.phase === "final") return `${div} Championship`;
-    if (m.phase === "third_place") return `${div} 3rd Place`;
+    if (m.phase === "final" || m.phase === "third_place") return div; // phase shown via colored tag
     return `Court ${m.court} · ${div}`;
 }
 
-function slotLabel(m) {
-    if (m.phase === "final") return "Championship";
-    if (m.phase === "third_place") return "Third Place";
-    return `Round ${m.slot_index + 1}`;
+// Only the two playoff games get a label, rendered as a colored overlay pill.
+// Round-robin games show no round number. Bronze = third place, Gold = final.
+function playoffTag(m) {
+    if (m.phase === "final") return { label: "Championship", bg: C.goldBg, fg: C.gold };
+    if (m.phase === "third_place") return { label: "Third Place", bg: C.bronzeBg, fg: C.bronze };
+    return null;
 }
 
 function computeStandings(matches, division) {
@@ -309,6 +310,7 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit, onShift
     const r = resultOf(pairs);
     const status = statusOf(teamA, teamB, pairs);
     const badge = STATUS[status];
+    const tag = playoffTag(m);
     const played = pairs.length > 0;
     const aWin = r.wonA > r.wonB;
     const bWin = r.wonB > r.wonA;
@@ -346,16 +348,14 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit, onShift
         <article className="border p-4 sm:p-5" style={{ borderColor: C.ink, background: C.paper }}>
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                    <div className="text-[11px] uppercase tracking-[0.18em] font-bold" style={{ color: C.rust }}>
-                        {cardLabel(m)}
-                    </div>
-                    <div className="flex items-baseline gap-2 mt-1">
-                        <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, lineHeight: 1, color: C.ink, letterSpacing: "0.01em" }}>
-                            {fmtTime(m.start_minute)}
-                        </span>
-                        <span className="text-[10px] uppercase tracking-widest" style={{ color: C.inkSoft, fontWeight: 700 }}>
-                            {slotLabel(m)}
-                        </span>
+                    <div className="flex items-center flex-wrap gap-x-1.5 gap-y-1 text-[11px] uppercase tracking-[0.18em] font-bold" style={{ color: C.rust }}>
+                        <span>{cardLabel(m)} ·</span>
+                        <span style={{ fontSize: 13, letterSpacing: "0.04em" }}>{fmtTime(m.start_minute)}</span>
+                        {tag && (
+                            <span className="px-1.5 py-0.5" style={{ background: tag.bg, color: tag.fg, fontSize: 10, letterSpacing: "0.1em" }}>
+                                {tag.label}
+                            </span>
+                        )}
                     </div>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">

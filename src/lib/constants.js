@@ -53,4 +53,6 @@ export const C = {
   liveBg: "#DDF1DE",
   gold: "#B8860B",
   goldBg: "#FBF3DB",
+  bronze: "#8B5A2B",
+  bronzeBg: "#ECDCC4",
 };
