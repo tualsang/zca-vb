@@ -73,7 +73,7 @@ src/
 │       ├── ConfirmScreen.jsx       Post-submit "You're In" screen for free agents.
 │       ├── RosterView.jsx          Public team list + admin "Add Team" panel.
 │       ├── FreeAgentsView.jsx      Public list of free agents.
-│       ├── ScheduleView.jsx        Schedule, live scores, admin scoring, standings table.
+│       ├── ScheduleView.jsx        Separate Men's/Women's columns, per-game times (clock-ordered), live scores, admin scoring, standings table.
 │       ├── VoteView.jsx            MVP poll, tap-to-vote, write-ins, admin moderation.
 │       ├── InfoView.jsx            Static info: format, date, address, time.
 │       └── RegistrationClosedView.jsx   Fallback if the register tab is reached when closed.
@@ -169,8 +169,10 @@ Enable replication (Supabase -> Database -> Replication) on **all three** tables
 
 Court A is the Men's division, Court B the Women's. Four teams per division play a full round robin (6 games each), then a third-place game and a championship.
 
+- **Layout:** the two divisions are **separate, independent columns** — Men's (Court A) and Women's (Court B), side by side on the "All" view (each full-width when filtered). They are no longer paired into shared "rounds"; the men's and women's schedules are unrelated lists.
 - **Filter bar:** All / Men (Court A) / Women (Court B) / **Table** (standings).
-- **Time** lives on the round header — "Round 1 — 9:30 AM". Admin ±15-minute steppers shift **both courts in that round together**; rounds shift independently of each other.
+- **Time** is **per game** and lives **on each card** (shown large under the court/division label, with the round/phase as a small secondary tag). Each game owns its own `start_minute`. Admin ±15-minute steppers sit **on each card** and move **that single game only** — men's and women's are independent, and no two games are linked.
+- **Ordering follows the clock:** within each division, games are sorted by `start_minute`, with `slot_index` as a tiebreak for equal times. So retiming a game **re-sorts it into place automatically**. Because round numbers come from `slot_index` (not time), the "Round N" tag can appear out of numeric order once a game is moved — time is the spine, the round number is just a label.
 - **Scores** are best-of-3, **free entry** (no validation). A match is **Final** automatically once a side reaches 2 set wins, **Live** once any score is entered, otherwise **Upcoming** — status is derived, never stored.
 - **Admin editing:** team-name fields and three set-score rows per game, committed with a **Submit** button (button flashes "Saved"). The card's own score previews as you type; the standings table updates on Submit. Edits are optimistic via `updateMatch`, so they apply instantly and sync after.
 - **Standings (Table):** two tables, Men's on top. Columns: **P** (matches played), **W**, **L**, **Sets** (set-win–set-loss), **PTS Ratio** (points for / against). Ranked by wins -> set ratio -> point ratio. Only **decided round-robin** games count. Teams are grouped by name **trimmed and case-insensitive** (so `Bethel` = `bethel`).

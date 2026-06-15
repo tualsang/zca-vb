@@ -182,21 +182,22 @@ export function ScheduleView({ isAdmin }) {
         });
     };
 
-    const shiftSlot = (games, delta) =>
-        games.forEach((g) =>
-            updateMatch(g.id, { start_minute: Math.max(0, Math.min(1439, g.start_minute + delta)) })
-        );
+    // Move a single game ±15 min. Men's and women's are independent now —
+    // each game owns its own start_minute.
+    const shiftGame = (m, delta) =>
+        updateMatch(m.id, { start_minute: Math.max(0, Math.min(1439, m.start_minute + delta)) });
 
-    const groups = useMemo(() => {
-        const by = new Map();
-        matches.forEach((m) => {
-            if (!by.has(m.slot_index)) by.set(m.slot_index, []);
-            by.get(m.slot_index).push(m);
-        });
-        return [...by.entries()]
-            .sort((a, b) => a[0] - b[0])
-            .map(([slot, games]) => ({ slot, games }));
-    }, [matches]);
+    // Each division is its own chronological list. Order follows the clock
+    // (start_minute); slot_index is only a tiebreak for games at the same time.
+    const sortByTime = (a, b) => (a.start_minute - b.start_minute) || (a.slot_index - b.slot_index);
+    const mensGames = useMemo(
+        () => matches.filter((m) => m.court === "A").slice().sort(sortByTime),
+        [matches]
+    );
+    const womensGames = useMemo(
+        () => matches.filter((m) => m.court === "B").slice().sort(sortByTime),
+        [matches]
+    );
 
     const mensStandings = useMemo(() => computeStandings(matches, "mens"), [matches]);
     const womensStandings = useMemo(() => computeStandings(matches, "womens"), [matches]);
@@ -218,45 +219,36 @@ export function ScheduleView({ isAdmin }) {
                     <StandingsTable title="Women's Standings" rows={womensStandings} />
                 </div>
             ) : (
-                <div className="space-y-8">
-                    {groups.map(({ slot, games }) => {
-                        const shown = games.filter((g) => filter === "all" || g.court === filter);
-                        if (shown.length === 0) return null;
-                        return (
-                            <section key={slot}>
-                                <div className="flex items-center justify-between gap-3 mb-3">
-                                    <span className="text-[11px] uppercase tracking-[0.22em] font-bold" style={{ color: C.inkSoft }}>
-                                        {slotLabel(games[0])} — {fmtTime(games[0].start_minute)}
-                                    </span>
-                                    {isAdmin && (
-                                        <div className="flex items-center gap-1.5">
-                                            <button onClick={() => shiftSlot(games, -15)} className="p-1 border transition-transform active:scale-90 active:opacity-60" style={{ borderColor: C.ink, color: C.ink }} aria-label="15 minutes earlier">
-                                                <Minus size={13} />
-                                            </button>
-                                            <button onClick={() => shiftSlot(games, 15)} className="p-1 border transition-transform active:scale-90 active:opacity-60" style={{ borderColor: C.ink, color: C.ink }} aria-label="15 minutes later">
-                                                <Plus size={13} />
-                                            </button>
-                                        </div>
+                (() => {
+                    const showMen = filter === "all" || filter === "A";
+                    const showWomen = filter === "all" || filter === "B";
+                    const twoCol = showMen && showWomen;
+                    const cardProps = {
+                        isAdmin,
+                        onName: setName,
+                        onScore: setScore,
+                        onCommit: commit,
+                        onShift: shiftGame,
+                    };
+                    return (
+                        <div className={twoCol ? "grid md:grid-cols-2 gap-x-6 gap-y-4" : ""}>
+                            {showMen && (
+                                <DivisionColumn title="Men's · Court A" games={mensGames}>
+                                    {(m) => (
+                                        <GameCard key={m.id} m={m} pairs={effPairs(m)} draft={currentDraft(m)} {...cardProps} />
                                     )}
-                                </div>
-                                <div className="grid md:grid-cols-2 gap-4">
-                                    {shown.map((m) => (
-                                        <GameCard
-                                            key={m.id}
-                                            m={m}
-                                            isAdmin={isAdmin}
-                                            pairs={effPairs(m)}
-                                            draft={currentDraft(m)}
-                                            onName={setName}
-                                            onScore={setScore}
-                                            onCommit={commit}
-                                        />
-                                    ))}
-                                </div>
-                            </section>
-                        );
-                    })}
-                </div>
+                                </DivisionColumn>
+                            )}
+                            {showWomen && (
+                                <DivisionColumn title="Women's · Court B" games={womensGames}>
+                                    {(m) => (
+                                        <GameCard key={m.id} m={m} pairs={effPairs(m)} draft={currentDraft(m)} {...cardProps} />
+                                    )}
+                                </DivisionColumn>
+                            )}
+                        </div>
+                    );
+                })()
             )}
         </div>
     );
@@ -293,7 +285,24 @@ function FilterBar({ filter, setFilter }) {
     );
 }
 
-function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit }) {
+function DivisionColumn({ title, games, children }) {
+    return (
+        <section>
+            <div className="flex items-baseline justify-between border-b-2 pb-2 mb-4" style={{ borderColor: C.ink }}>
+                <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(22px, 5vw, 30px)", lineHeight: 1, color: C.ink, letterSpacing: "0.02em" }}>
+                    {title}
+                </h2>
+            </div>
+            {games.length === 0 ? (
+                <EmptyState message="No games scheduled." />
+            ) : (
+                <div className="space-y-4">{games.map((m) => children(m))}</div>
+            )}
+        </section>
+    );
+}
+
+function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit, onShift }) {
     const [saved, setSaved] = useState(false);
     const teamA = isAdmin ? draft.team_a : m.team_a;
     const teamB = isAdmin ? draft.team_b : m.team_b;
@@ -335,14 +344,36 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit }) {
 
     return (
         <article className="border p-4 sm:p-5" style={{ borderColor: C.ink, background: C.paper }}>
-            <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] uppercase tracking-[0.18em] font-bold" style={{ color: C.rust }}>
-                    {cardLabel(m)}
-                </span>
-                <span className="text-[11px] uppercase tracking-wider font-bold px-2 py-0.5"
-                    style={{ background: badge.bg, color: badge.fg }}>
-                    {badge.label}
-                </span>
+            <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-[0.18em] font-bold" style={{ color: C.rust }}>
+                        {cardLabel(m)}
+                    </div>
+                    <div className="flex items-baseline gap-2 mt-1">
+                        <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, lineHeight: 1, color: C.ink, letterSpacing: "0.01em" }}>
+                            {fmtTime(m.start_minute)}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-widest" style={{ color: C.inkSoft, fontWeight: 700 }}>
+                            {slotLabel(m)}
+                        </span>
+                    </div>
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                    <span className="text-[11px] uppercase tracking-wider font-bold px-2 py-0.5"
+                        style={{ background: badge.bg, color: badge.fg }}>
+                        {badge.label}
+                    </span>
+                    {isAdmin && (
+                        <div className="flex items-center gap-1.5">
+                            <button onClick={() => onShift(m, -15)} className="p-1 border transition-transform active:scale-90 active:opacity-60" style={{ borderColor: C.ink, color: C.ink }} aria-label="15 minutes earlier">
+                                <Minus size={13} />
+                            </button>
+                            <button onClick={() => onShift(m, 15)} className="p-1 border transition-transform active:scale-90 active:opacity-60" style={{ borderColor: C.ink, color: C.ink }} aria-label="15 minutes later">
+                                <Plus size={13} />
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="flex items-center gap-3 mt-3">

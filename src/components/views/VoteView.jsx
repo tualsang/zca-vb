@@ -140,9 +140,11 @@ export function VoteView({ isAdmin }) {
                         <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(24px, 6vw, 34px)", lineHeight: 1, color: C.ink, letterSpacing: "0.02em" }}>
                             Results
                         </h3>
-                        <span className="text-xs uppercase tracking-widest" style={{ color: C.inkSoft }}>
-                            {poll.total} {poll.total === 1 ? "vote" : "votes"}
-                        </span>
+                        {isAdmin && (
+                            <span className="text-xs uppercase tracking-widest" style={{ color: C.inkSoft }}>
+                                {poll.total} {poll.total === 1 ? "vote" : "votes"}
+                            </span>
+                        )}
                     </div>
 
                     {poll.arr.length === 0 ? (
