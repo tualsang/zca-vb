@@ -82,7 +82,7 @@ export function InfoView() {
 
         <Section title="Contact">
           <p>
-            Questions on tournament day? Call the organizer at{" "}
+            Questions? {" "}
             <a href="tel:+17042016580" className="font-semibold"
               style={{ color: C.rust }}>
               (704) 201 6580
