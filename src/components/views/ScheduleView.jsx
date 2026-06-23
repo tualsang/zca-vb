@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Minus, Plus, Check } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Check } from "lucide-react";
 import { C } from "../../lib/constants";
 import { LoadingState, EmptyState } from "../shared/Status";
 import { useMatches } from "../../hooks/useMatches";
@@ -183,10 +183,10 @@ export function ScheduleView({ isAdmin }) {
         });
     };
 
-    // Move a single game ±15 min. Men's and women's are independent now —
-    // each game owns its own start_minute.
-    const shiftGame = (m, delta) =>
-        updateMatch(m.id, { start_minute: Math.max(0, Math.min(1439, m.start_minute + delta)) });
+    // Set a single game's start time to an absolute minute-of-day. Men's and
+    // women's are independent — each game owns its own start_minute.
+    const setTime = (m, minute) =>
+        updateMatch(m.id, { start_minute: Math.max(0, Math.min(1439, minute)) });
 
     // Each division is its own chronological list. Order follows the clock
     // (start_minute); slot_index is only a tiebreak for games at the same time.
@@ -229,7 +229,7 @@ export function ScheduleView({ isAdmin }) {
                         onName: setName,
                         onScore: setScore,
                         onCommit: commit,
-                        onShift: shiftGame,
+                        onSetTime: setTime,
                     };
                     return (
                         <div className={twoCol ? "grid md:grid-cols-2 gap-x-6 gap-y-4" : ""}>
@@ -303,7 +303,73 @@ function DivisionColumn({ title, games, children }) {
     );
 }
 
-function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit, onShift }) {
+// Admin start-time control. A plain numeric field (no spinner, no picker) so
+// mobile shows the number pad. Type the time as digits — "915" → 9:15 AM,
+// "1230" → 12:30 PM. Since the event runs 9 AM–5 PM, a bare hour of 1–8 reads
+// as afternoon; 9–12 stay as typed. A four-digit entry is treated as 24-hour
+// (e.g. "0800" → 8:00 AM, "1700" → 5:00 PM). The live preview shows the parsed
+// time before it commits, so nothing is a surprise. Commits on blur / Enter.
+function TimeEditor({ minute, onCommit }) {
+    const toDigits = (min) => {
+        const m = ((min % 1440) + 1440) % 1440;
+        const h = Math.floor(m / 60);
+        return `${h}${String(m % 60).padStart(2, "0")}`; // 900, 1430, …
+    };
+
+    const [val, setVal] = useState(toDigits(minute));
+    const [focused, setFocused] = useState(false);
+
+    // Stay in sync with optimistic/realtime updates while not being edited.
+    useEffect(() => {
+        if (!focused) setVal(toDigits(minute));
+    }, [minute, focused]);
+
+    const parse = (raw) => {
+        const d = (raw || "").replace(/[^0-9]/g, "").slice(0, 4);
+        if (!d) return null;
+        let h, mm;
+        if (d.length <= 2) { h = parseInt(d, 10); mm = 0; }
+        else if (d.length === 3) { h = parseInt(d.slice(0, 1), 10); mm = parseInt(d.slice(1), 10); }
+        else { h = parseInt(d.slice(0, 2), 10); mm = parseInt(d.slice(2), 10); }
+        if (mm > 59) return null;
+        if (h >= 1 && h <= 8) h += 12; // event is afternoon by then
+        if (h > 23) return null;
+        return h * 60 + mm;
+    };
+
+    const preview = parse(val);
+
+    const commit = () => {
+        setFocused(false);
+        if (preview == null) { setVal(toDigits(minute)); return; } // revert junk
+        setVal(toDigits(preview));
+        if (preview !== minute) onCommit(preview);
+    };
+
+    return (
+        <div className="flex items-center gap-1.5">
+            <input
+                value={val}
+                onChange={(e) => setVal(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+                onFocus={(e) => { setFocused(true); e.target.select(); }}
+                onBlur={commit}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                inputMode="numeric"
+                aria-label="Game start time (type as HHMM)"
+                className="w-14 px-2 py-1 border bg-white text-center focus:outline-none"
+                style={{ borderColor: C.ink, color: C.ink, fontSize: 13, letterSpacing: "0.04em" }}
+            />
+            <span
+                className="text-[11px] tabular-nums"
+                style={{ color: preview == null ? C.rust : C.inkSoft, minWidth: 54 }}
+            >
+                {preview == null ? "—" : fmtTime(preview)}
+            </span>
+        </div>
+    );
+}
+
+function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit, onSetTime }) {
     const [saved, setSaved] = useState(false);
     const teamA = isAdmin ? draft.team_a : m.team_a;
     const teamB = isAdmin ? draft.team_b : m.team_b;
@@ -364,14 +430,7 @@ function GameCard({ m, isAdmin, pairs, draft, onName, onScore, onCommit, onShift
                         {badge.label}
                     </span>
                     {isAdmin && (
-                        <div className="flex items-center gap-1.5">
-                            <button onClick={() => onShift(m, -15)} className="p-1 border transition-transform active:scale-90 active:opacity-60" style={{ borderColor: C.ink, color: C.ink }} aria-label="15 minutes earlier">
-                                <Minus size={13} />
-                            </button>
-                            <button onClick={() => onShift(m, 15)} className="p-1 border transition-transform active:scale-90 active:opacity-60" style={{ borderColor: C.ink, color: C.ink }} aria-label="15 minutes later">
-                                <Plus size={13} />
-                            </button>
-                        </div>
+                        <TimeEditor minute={m.start_minute} onCommit={(min) => onSetTime(m, min)} />
                     )}
                 </div>
             </div>
