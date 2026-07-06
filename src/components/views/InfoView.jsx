@@ -70,12 +70,9 @@ export function InfoView() {
 
         <Section title="Rules">
           <RulesGrid rows={[
-            ["Rotation", "Men ✓ · Women ✗"],
+            ["Rotation", "Men ✗ · Women ✗"],
             ["10-Foot Line", "Men ✓ · Women ✗"],
             ["Foot Fault (under-net line)", "Not enforced"],
-            ["Net Fault", "Enforced"],
-            ["Doubles", "Not strict"],
-            ["Carry", "Not strict"],
             ["Other Rules", "Up to Referees' Discretion"],
           ]} />
         </Section>
