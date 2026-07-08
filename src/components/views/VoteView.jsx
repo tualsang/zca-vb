@@ -8,6 +8,7 @@ import { useMatches } from "../../hooks/useMatches";
 const norm = (s) => (s || "").trim().toLowerCase();
 const keyOf = (playerName, team) => `${norm(playerName)}|${norm(team)}`;
 
+
 function readVoted() {
     try { return typeof window !== "undefined" && window.localStorage.getItem("zca_mvp_voted") === "1"; }
     catch { return false; }
@@ -189,9 +190,6 @@ export function VoteView({ isAdmin }) {
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
-                                    <div className="mt-3 h-2" style={{ background: C.line }}>
-                                        <div className="h-2" style={{ width: `${c.pct}%`, background: C.rust }} />
                                     </div>
                                 </div>
                             ))}
