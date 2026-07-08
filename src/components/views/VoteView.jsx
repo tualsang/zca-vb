@@ -131,7 +131,7 @@ export function VoteView({ isAdmin }) {
                     MVP Vote
                 </h2>
                 <p className="mt-3 text-sm italic" style={{ fontFamily: "'Newsreader', serif", color: C.inkSoft }}>
-                    Vote for the men's-division player who stood out. Tap a name below, or write in someone who isn't listed.
+                    Vote for Men's MVP. If you want to be unlisted, please let an organizer know.
                 </p>
                 {thanks && (
                     <div className="mt-4 p-3 text-xs flex items-center gap-2" style={{ background: C.okBg, color: C.ok, border: `1px solid ${C.ok}` }}>
