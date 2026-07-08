@@ -54,12 +54,16 @@ export function VoteView({ isAdmin }) {
     }, [matches]);
 
     // Approved votes grouped into candidates with percentages.
+    // Rows inserted by admin with voter_token "admin-seed" establish a candidate
+    // entry (count = 0) without contributing to the vote tally, so all players
+    // start at 0% until a real visitor casts a vote.
     const poll = useMemo(() => {
         const map = new Map();
         votes.filter((v) => v.status === "approved").forEach((v) => {
             const k = keyOf(v.player_name, v.team);
+            const isSeed = v.voter_token === "admin-seed";
             if (!map.has(k)) map.set(k, { key: k, player_name: v.player_name.trim(), team: v.team.trim(), count: 0 });
-            map.get(k).count++;
+            if (!isSeed) map.get(k).count++;
         });
         const arr = [...map.values()];
         const total = arr.reduce((s, c) => s + c.count, 0);
@@ -97,7 +101,9 @@ export function VoteView({ isAdmin }) {
         if (!name.trim()) return setError("Enter the player's name.");
         if (!team) return setError("Choose a team.");
         setBusy(true);
-        await castVote({ player_name: name.trim(), team, voter_token: null, status: "approved" });
+        // Use voter_token "admin-seed" so this row registers the player without
+        // counting as a real vote (count stays at 0 until a visitor votes).
+        await castVote({ player_name: name.trim(), team, voter_token: "admin-seed", status: "approved" });
         setName(""); setTeam("");
         setBusy(false);
     };
@@ -202,7 +208,7 @@ export function VoteView({ isAdmin }) {
                         <div className="grid sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: C.inkSoft }}>Player name</label>
-                                <input value={name} onChange={(e) => setName(e.target.value.replace(/[0-9]/g, ""))}
+                                <input value={name} onChange={(e) => setName(e.target.value)}
                                     placeholder="e.g. Sam Okonkwo"
                                     className="w-full px-3 py-2 border bg-transparent focus:outline-none text-sm"
                                     style={{ borderColor: C.ink, color: C.ink }} />
