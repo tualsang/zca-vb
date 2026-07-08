@@ -27,7 +27,7 @@ export const EVENT_START = new Date("2026-07-10T13:00:00Z");
 export const EVENT_END = new Date("2026-07-10T21:00:00Z");
 
 // MVP voting opens at noon on tournament day and stays open from then on.
-export const MVP_VOTE_OPEN = new Date("2026-07-10T16:00:00Z");
+export const MVP_VOTE_OPEN = new Date("2026-07-10T13:01:00Z");
 
 // Event metadata
 export const EVENT_DATE_DISPLAY = "July 10, 2026";
